@@ -1,0 +1,193 @@
+[
+        {
+            "name": "Barbara Karst",
+            "view": "seaside",
+            "Details": {
+                "Description": "<p>\"Barbara Karst\" is a romantic tropical-style cottage inspired by the vibrant bougainvillea that surrounds it. Designed with a balance of natural textures and coastal sophistication, it combines bamboo accents, cream-colored walls, and sunlight filtering through linen curtains. Its atmosphere is serene — ideal for couples or solo travelers seeking a peaceful retreat close to the beach yet immersed in lush greenery. The cottage sits slightly elevated on a small dune, with an open veranda draped in climbing vines, creating natural shade and privacy.</p>",
+
+                "View": "<p>Facing the shimmering turquoise coastline, Barbara Karst offers a panoramic seaside view framed by coral bougainvillea vines cascading over whitewashed railings.<br />From the balcony, guests can watch the sunrise over the waves and hear the soft sound of palms swaying in the ocean breeze.</p>",
+                "FurnitureDescription": "<p>The interior follows a coastal minimalist aesthetic:</p><p>A handcrafted queen-size canopy bed with driftwood posts and crisp white cotton sheets.</p><p>A woven rattan lounge chair beside a low teak coffee table.</p><p>Built-in bamboo shelving for essentials and a small reading nook with soft cushions.</p><p>Subtle décor elements — ceramic vases, seashell lamps, and local artwork featuring tropical flowers.</p><p>The furniture emphasizes lightness and natural materials to enhance the cottage’s airy, open feel.</p>",
+                "BathroomDescription": "<p>The bathroom embraces a spa-like tropical design:</p><p>Rainfall shower with natural stone flooring and open ventilation toward a private enclosed garden.</p><p>Polished concrete sink set on a wooden vanity with a round mirror framed in rope.</p><p>Aromatherapy toiletries featuring coconut, jasmine, and ylang-ylang scents.</p><p>Soft terry towels and a woven basket with amenities arranged hotel-style.</p><p>A narrow skylight above the shower allows natural sunlight to pour in during the day.</p>",
+                "AmenitiesDescription": "<p>Guests staying in Barbara Karst enjoy:</p><p>Complimentary tropical breakfast served on the private veranda.</p><p>Mini-bar stocked with local fruit juices and light snacks.</p><p>Wi-Fi and a discreet Bluetooth sound system integrated into the wooden ceiling beams.</p><p>Ceiling fan and eco air-conditioning.</p><p>Hammock corner overlooking the sea — perfect for reading or evening cocktails.</p><p>Optional massage-on-demand and kayak rental for exploring the nearby shore.</p>"
+            },
+            "Photos": [
+                "Barbara_Karst_room.png",
+                "Barbara_Karst_bathroom.png",
+                "Barbara_Karst_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Juanita Hatten",
+            "view": "seaside",
+            "Details": {
+                "Description": "<p>The Juanita Hatten cottage is designed as a seaside sanctuary of softness and light.<br />Inspired by the variegated petals of its namesake flower, the interior plays with pastel hues, whitewashed wood, and subtle blush tones that evoke sunrise over calm waters.<br />This cottage embodies a sense of romantic calm — perfect for honeymoons, anniversaries, or slow mornings spent gazing at the sea.</p><p>The space feels airy yet intimate, surrounded by flowering vines and low stone borders that blend seamlessly with the coastal landscape.</p>",
+                "View": "<p>Perched along the same coastline as Barbara Karst, Juanita Hatten overlooks a quiet curve of white-sand beach framed by flowering bougainvillea and pale pink hibiscus.<br />From the wide veranda, guests can enjoy an uninterrupted ocean horizon, where the sea glimmers in shades of sapphire and rose at sunset.<br />Gentle waves and sea breezes flow through the open windows, carrying the scent of salt and jasmine.</p>",
+                "FurnitureDescription": "<p>Every furnishing is chosen to express comfort and understated elegance:</p><p>A king-size bed with a soft linen canopy and seashell-gray frame.</p><p>Ivory cotton curtains flutter gently over wide windows.</p><p>A handcrafted vanity table with an oval mirror carved from reclaimed teak.</p><p>A plush loveseat in pale coral fabric with woven jute details.</p><p>A writing desk facing the sea — ideal for journaling or sketching.</p><p>Accent pieces include ceramic lamps, woven baskets, and a bougainvillea-patterned throw blanket.</p><p>The design combines artisan craftsmanship with coastal simplicity.</p>",
+                "BathroomDescription": "<p>The bathroom carries a romantic coastal spa theme:</p><p>Open-plan rainfall shower enclosed by frosted glass with mosaic seashell tiles.</p><p>Freestanding bathtub beside a full-height window that can open toward the veranda (with privacy screens).</p><p>Handmade soap bars scented with hibiscus and coconut milk.</p><p>Marble sink basin with brushed brass fixtures and natural coral décor.</p><p>Soft pink-tinted ambient lighting for a sunset-like glow in the evening.</p><p>Every detail encourages slow, relaxing routines — perfect after a day at the beach.</p>",
+                "AmenitiesDescription": "<p>Guests staying at Juanita Hatten enjoy:</p><p>Complimentary champagne breakfast on the veranda or by the beach.</p><p>Smart lighting system that mimics natural daylight cycles.</p><p>Bluetooth sound system with curated ambient playlists (soft jazz, waves, and tropical sounds).</p><p>Private hammock nook draped with bougainvillea for oceanfront reading.</p><p>Mini-bar featuring tropical fruits, rosé wine, and local desserts.</p><p>Air-conditioning, Wi-Fi, and room fragrance diffuser with natural essential oils.</p><p>Optional sunset picnic service and beach yoga sessions.</p>"
+            },
+            "Photos": [
+                "Juanita_Hatten_room.png",
+                "Juanita_Hatten_bathroom.png",
+                "Juanita_Hatten_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Golden Glow",
+            "view": "seaside",
+            "Details": {
+                "Description": "<p>Golden Glow captures the warmth and optimism of a tropical sunset. Designed with honey-colored woods, woven textures, and soft golden fabrics, this cottage radiates cozy brightness at every hour.<br />Its ambiance is peaceful yet invigorating — perfect for guests who enjoy sunlight, color, and sea air. The open layout connects seamlessly to the terrace, blurring the line between indoors and the golden seascape beyond.</p>",
+                "View": "<p>Bathed in the soft amber light of dawn, Golden Glow faces a western-facing bay, offering breathtaking sunset views over the ocean. The horizon turns gold each evening, reflecting across the cottage’s veranda and warm-toned interiors. Gentle surf rolls against the shore, and palm silhouettes sway beneath the fading sun.</p>",
+                "FurnitureDescription": "<p>Stepping inside Golden Glow, guests are welcomed by a space that feels naturally illuminated — every piece seems touched by sunlight.</p><p>A queen-size bed with a rattan frame and linen canopy tinted in pale gold anchors the room.</p><p>A bamboo coffee table and woven armchairs with mustard-toned cushions invite late-afternoon lounging.</p><p>The teak dresser with rope handles and a circular driftwood mirror adds rustic charm.</p><p>Golden lighting fixtures bring a gentle sunset warmth even after night falls.</p><p>Accents like shell mobiles and amber glass vases complete the cozy coastal feel.<br />Together, the furniture creates an atmosphere that glows softly from dawn to dusk, mirroring the sea’s golden shimmer outside.</p>",
+                "BathroomDescription": "<p>The bathroom offers a warm, earthy retreat inspired by the sunlit coast.</p><p>A walk-in shower lined with golden sandstone opens toward a narrow ocean-view slit window.</p><p>A hand-carved stone basin rests gracefully on a floating wooden vanity.</p><p>Organic citrus-and-sandalwood amenities enhance the sense of natural luxury.</p><p>Warm LED lighting around the mirror brings a spa-like glow to evening routines.<br />The space feels peaceful and grounded — a perfect way to unwind as the sunlight fades beyond the horizon.</p>",
+                "AmenitiesDescription": "<p>Every detail in Golden Glow is designed for slow, sunlit comfort. Guests enjoy:</p><p>A fresh tropical fruit basket featuring mango, papaya, and passion fruit.</p><p>An aromatherapy diffuser with vanilla and amber essence.</p><p>Mini wine fridge, espresso corner, and Bluetooth sound system for relaxing evenings.</p><p>Wi-Fi, ceiling fan, and air-conditioning for modern ease.<br />A private terrace hammock overlooks the sea — the ideal spot to watch the sky turn gold, reflecting the cottage’s name and spirit.</p>"
+            },
+            "Photos": [
+                "Golden_Glow_room.png",
+                "Golden_Glow_bathroom.png",
+                "Golden_Glow_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Singapore White",
+            "view": "seaside",
+            "Details": {
+                "Description": "<p>Singapore White is the resort’s purest expression of tranquility. With whitewashed walls, light oak floors, and linen-draped windows, it channels tropical modernism in its most refined form.<br />Soft light fills the space from sunrise to sunset, creating an environment ideal for meditation, reading, or quiet coastal mornings. Every surface feels clean and intentional — designed for the kind of peace only the ocean can offer.</p>",
+                "View": "<p>Positioned at the resort’s quietest coastal edge, Singapore White enjoys a panoramic sea view framed by white sands and calm turquoise water. The cottage is shaded by tall coconut palms, giving guests the sensation of staying in a private coastal pavilion.</p>",
+                "FurnitureDescription": "<p>The furnishings in Singapore White are simple yet sophisticated, chosen to highlight air, light, and space.</p><p>A king-size platform bed dressed in crisp white cotton.</p><p>Marble-topped nightstands with ceramic lamps that emit soft light.</p><p>A low chaise lounge by the terrace window for afternoon naps.</p><p>Sea coral sculptures, woven rugs, and a single white orchid bring subtle texture.</p><p>Built-in oak desk and bench provide both practicality and aesthetic balance.<br />Each element contributes to a sense of serene order, leaving guests enveloped in calm minimalism.</p>",
+                "BathroomDescription": "<p>The bathroom continues the theme of quiet purity and gentle luxury.</p><p>Its open wet-room layout features white stone tiles and seamless floor drainage.</p><p>A freestanding soaking tub rests near a frosted glass wall surrounded by smooth pebbles.</p><p>Stainless steel fixtures and soft daylight illumination keep the tone understated yet refined.</p><p>Amenities include coconut milk and white tea blends for gentle hydration.<br />The experience is immersive yet meditative — a place where sound, scent, and light converge in stillness.</p>",
+                "AmenitiesDescription": "<p>Every amenity in Singapore White reflects effortless grace:</p><p>Filtered water, organic tea selection, and white tea bath products.</p><p>Bluetooth sound system, discreet ceiling fan, and air-conditioning.</p><p>Breakfast basket and herbal tea service delivered to the veranda each morning.</p><p>A private sun deck with teak loungers overlooking the tranquil bay.<br />From sunrise yoga to sunset reflection, everything here whispers serenity and simplicity.</p>"
+            },
+            "Photos": [
+                "Singapore_White_room.png",
+                "Singapore_White_bathroom.png",
+                "Singapore_White_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Raspberry Ice",
+            "view": "seaside",
+            "Details": {
+                "Description": "<p>Raspberry Ice is the artistic heart of the seaside collection — playful, soft, and inspiring.<br />It mixes blush tones, mint greens, and creamy whites to evoke creativity and calm.<br />Perfect for artists, writers, or quiet dreamers, the cottage feels like a watercolor studio by the sea, inviting every guest to linger, observe, and feel.</p>",
+                "View": "<p>Set on a gently elevated sand bluff, Raspberry Ice overlooks the open sea where coral reefs tint the waves with pink and lavender at dusk. The veranda offers a sweeping view of the horizon, framed by bougainvillea and sea daisies — a painter’s palette come alive in the breeze.</p>",
+                "FurnitureDescription": "<p>The interior feels like a gentle embrace of color and comfort.</p><p>A double bed with whitewashed wooden frame and blush linen coverlet anchors the space.</p><p>A mint-green lounge chair and rattan side table offer a cozy reading nook.</p><p>Wall art featuring soft ocean forms brings subtle energy to the room.</p><p>A compact bamboo writing desk by the window provides a peaceful workspace.</p><p>Macramé planters and small air plants hang from ceiling beams, adding life and motion.<br />The furniture arrangement creates an atmosphere that’s both calming and lightly whimsical — like a seaside morning painted in pastel hues.</p>",
+                "BathroomDescription": "<p>The bathroom extends the cottage’s artistic softness with a pastel, spa-inspired design.</p><p>A walk-in shower with rose quartz tiles glows under the light from a circular skylight.</p><p>A polished glass sink rests on a hand-painted vanity in muted tones.</p><p>Rose and lemongrass aromatherapy oils add a gentle, refreshing scent.</p><p>White robes, cotton slippers, and decorative soap tins complete the experience.<br />The result is intimate and delicate — a space that feels as personal and graceful as a handwritten letter.</p>",
+                "AmenitiesDescription": "<p>Every amenity in Raspberry Ice is curated for comfort and gentle inspiration:</p><p>Iced raspberry-hibiscus tea set, refreshed daily.</p><p>Mini-fridge with fresh fruit and pastries, and a Bluetooth sound system for soft background music.</p><p>Wi-Fi, quiet air-conditioning, and adjustable mood lighting for creative work or rest.</p><p>A terrace hammock shaded by pink bougainvillea for afternoon naps.</p><p>Optional art & watercolor kit for guests who wish to capture their view on paper.<br />Everything here invites you to slow down, create, and savor the beauty of still moments by the sea.</p>"
+            },
+            "Photos": [
+                "Raspberry_Ice_room.png",
+                "Raspberry_Ice_bathroom.png",
+                "Raspberry_Ice_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Torch Ginger",
+            "view": "lakeside",
+            "Details": {
+                "Description": "<p>Torch Ginger embodies the essence of tropical luxury — vibrant, fragrant, and full of life.<br />This cottage is designed for guests who love color, sensuality, and natural beauty. With terracotta walls, dark wood beams, and crimson fabric accents, it captures the feeling of a hidden lakeside retreat in the rainforest.<br />Everything here is rich and textural, celebrating the lushness of its surroundings.</p>",
+                "View": "<p>Nestled beside the lake’s reflective edge, Torch Ginger enjoys a panoramic water view surrounded by lush tropical foliage.<br />From its veranda, the calm surface mirrors the sky’s changing colors — pink at dawn, silver at midday, and violet at dusk. The faint scent of ginger blossoms drifts through the breeze, mingling with the soft rustle of banana leaves.</p>",
+                "FurnitureDescription": "<p>Stepping inside feels like entering a tropical villa embraced by warmth and fragrance.</p><p>A king-size bed with carved mahogany frame and deep red canopy stands at the center.</p><p>Wicker armchairs with embroidered cushions face a wide glass door overlooking the lake.</p><p>A writing desk made of reclaimed teak offers a peaceful view for reflection.</p><p>Clay vases, woven baskets, and botanical prints fill the space with earthy character.<br />Every furnishing balances richness with serenity, creating a space that feels both opulent and grounded in nature.</p>",
+                "BathroomDescription": "<p>The bathroom at Torch Ginger is a private sanctuary inspired by tropical spas.</p><p>A stone bathtub sits partially open to a small enclosed garden with a trickling water feature.</p><p>The rainfall shower is surrounded by smooth river pebbles and ginger plants.</p><p>Toiletries are infused with lemongrass and patchouli.</p><p>Soft amber lighting reflects off the polished wood vanity, casting a warm glow.<br />It’s a space that feels alive — earthy, fragrant, and endlessly soothing after a swim or day exploring.</p>",
+                "AmenitiesDescription": "<p>Everything in Torch Ginger is designed for indulgence and tranquility:</p><p>Complimentary welcome drink made from fresh ginger and honey.</p><p>Aromatherapy diffuser, air-conditioning, and Bluetooth speaker.</p><p>Mini-bar with tropical fruits and fine chocolates.</p><p>Private veranda hammock and outdoor shower overlooking the lake.<br />The experience blends natural comfort and refined detail — the essence of lakeside elegance.</p>"
+            },
+            "Photos": [
+                "Torch_Ginger_room.png",
+                "Torch_Ginger_bathroom.png",
+                "Torch_Ginger_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Bird of Paradise",
+            "view": "lakeside",
+            "Details": {
+                "Description": "<p>Named after the iconic flower, Bird of Paradise celebrates vibrancy, balance, and freedom.<br />Its design draws from mid-century tropical architecture — high ceilings, angular beams, and walls that open completely to nature.<br />The interior pairs burnt orange, teal, and natural oak tones, creating a feeling of dynamic serenity — modern, yet distinctly organic.</p>",
+                "View": "<p>Set slightly above the lakeshore, Bird of Paradise commands a view of both water and forest canopy.<br />Guests can watch herons glide across the mirrored surface each morning as mist rises from the lake — an ever-changing scene of quiet vitality.</p>",
+                "FurnitureDescription": "<p>Inside, every detail reflects the beauty of flight and form.</p><p>A queen-size platform bed with clean lines and deep-blue bedding anchors the room.</p><p>Accent chairs in tangerine upholstery echo the flower’s vivid petals.</p><p>A sculptural standing lamp shaped like an open wing adds artistic flair.</p><p>The desk and shelves, crafted from bamboo and glass, provide minimalist function without interrupting the view.<br />Altogether, the space feels fresh and uplifting — like a private lakeside perch suspended between water and sky.</p>",
+                "BathroomDescription": "<p>The bathroom is sleek and open, emphasizing air, reflection, and movement.</p><p>A walk-in shower with panoramic glass panels overlooks the lake through a privacy screen of palms.</p><p>Smooth basalt tiles and a floating vanity with polished chrome fixtures maintain a modern balance.</p><p>Eucalyptus-scented amenities enhance the sense of freshness.</p><p>A subtle skylight above the shower casts soft natural light, even on cloudy days.<br />It’s a harmonious blend of design and nature — both energizing and peaceful.</p>",
+                "AmenitiesDescription": "<p>Guests of Bird of Paradise enjoy:</p><p>Complimentary morning smoothie bar with tropical fruits.</p><p>Smart lighting, Wi-Fi, Bluetooth sound system, and ceiling fan.</p><p>Private deck with reclining chairs overlooking the lake.</p><p>Optional birdwatching set (binoculars and guidebook) for early risers.</p><p>Evening turn-down service with calming jasmine mist.<br />Each stay feels vibrant yet effortless — a perfect balance of modern luxury and natural connection.</p>"
+            },
+            "Photos": [
+                "Bird_of_Paradise_room.png",
+                "Bird_of_Paradise_bathroom.png",
+                "Bird_of_Paradise_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Passion Flower",
+            "view": "lakeside",
+            "Details": {
+                "Description": "<p>Passion Flower captures the mystical and romantic side of the tropics.<br />Its design is sensual and poetic — with deep purple accents, soft lantern lighting, and carved wooden screens that cast floral shadows on the walls.<br />Ideal for couples, this cottage feels like a private hideaway made for long conversations, moonlit baths, and slow mornings by the lake.</p>",
+                "View": "<p>Hidden among the lakeside vines, Passion Flower overlooks a tranquil inlet where the water meets lush greenery.<br />The view is intimate rather than wide — a secret cove surrounded by flowering climbers, where dragonflies hover and the reflections ripple like silk.</p>",
+                "FurnitureDescription": "<p>The interior feels like a secret retreat — soft, layered, and warm.</p><p>A queen canopy bed draped in lilac gauze sits beneath a fan of carved bamboo.</p><p>Velvet chaise lounge in muted plum near the window invites relaxation.</p><p>A rosewood table with lantern centerpiece sets the tone for evening tea.</p><p>Handwoven rugs, lace curtains, and purple orchids complete the mood.<br />Every element feels intentional — rich but never overwhelming — creating a romantic balance of elegance and intimacy.</p>",
+                "BathroomDescription": "<p>The bathroom offers a sense of privacy and dreamlike calm.</p><p>A stone tub surrounded by creeping vines opens to the garden.</p><p>The shower area is tiled with deep blue mosaic, evoking underwater reflections.</p><p>Lavender and vanilla bath products fill the air with a soft, calming scent.</p><p>Candlelight flickers across smooth stone walls, creating a tranquil glow.<br />Bathing here feels less like a routine and more like a small ritual of renewal.</p>",
+                "AmenitiesDescription": "<p>Each stay at Passion Flower is designed to nurture peace and connection:</p><p>Welcome basket with herbal teas and artisanal sweets.</p><p>Bluetooth sound system, Wi-Fi, and adjustable mood lighting.</p><p>Private patio with lake access for morning yoga or evening stargazing.</p><p>Optional couples massage and moonlight boat ride bookings.<br />It’s a space for deep rest — where time slows, hearts open, and the world outside fades into the sound of the lake.</p>"
+            },
+            "Photos": [
+                "Passion_Flower_room.png",
+                "Passion_Flower_bathroom.png",
+                "Passion_Flower_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Wild Rose",
+            "view": "mountainside",
+            "Details": {
+                "Description": "<p>The Wild Rose cottage is the heart of the mountainside retreat — warm, rustic, and full of character.<br />Built from local stone and cedar wood, it feels naturally part of the hillside. Its design celebrates the balance between comfort and wilderness, with textured walls, handmade furniture, and soft rose hues inspired by the blooms that surround it.<br />It’s a space made for travelers who love nature’s quiet strength — romantic without being fragile.</p>",
+                "View": "<p>Wild Rose sits on the gentle shoulder of the mountain, overlooking the valley below.<br />From its veranda, guests see terraced gardens, distant forests, and a river threading through the hills. In the morning, mist drifts slowly through the wildflowers, and by evening, the whole slope glows in rose-gold light.</p>",
+                "FurnitureDescription": "<p>Inside Wild Rose, every piece tells a story of craftsmanship and comfort.</p><p>A queen-size bed made from reclaimed oak with rose-patterned linens anchors the room.</p><p>Wool throws and embroidered cushions bring mountain coziness.</p><p>A stone fireplace with a hand-forged iron grate adds warmth on cool evenings.</p><p>Wooden armchairs with plush upholstery face a panoramic window that frames the valley.</p><p>Decorative details — pressed flower art, clay pottery, and woven rugs — complete the cottage’s rustic charm.<br />The space feels timeless, inviting guests to slow down and breathe with the rhythm of the mountains.</p>",
+                "BathroomDescription": "<p>The bathroom continues the theme of rustic luxury with mountain textures and warmth.</p><p>A freestanding copper bathtub stands near a wide frosted window overlooking the forest edge.</p><p>Handmade ceramic sink set in a stone vanity, lit by lantern sconces.</p><p>Rose and cedarwood bath products bring the scent of the hillside indoors.</p><p>A walk-in shower with natural rock walls and pebble flooring completes the grounding feel.<br />It’s both raw and refined — a private sanctuary that feels carved from the mountain itself.</p>",
+                "AmenitiesDescription": "<p>Every detail in Wild Rose complements its setting:</p><p>Complimentary mountain herbal tea and homemade biscuits upon arrival.</p><p>Firewood basket, wool blankets, and Bluetooth sound system for cozy evenings.</p><p>Wi-Fi and eco-heater integrated into the fireplace for comfort.</p><p>A private terrace bench surrounded by roses and mossy stones — perfect for watching sunrise.<br />Wild Rose is where nature’s wildness meets the comfort of home, capturing the gentle power of the mountains.</p>"
+            },
+            "Photos": [
+                "Wild_Rose_room.png",
+                "Wild_Rose_bathroom.png",
+                "Wild_Rose_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        },
+        {
+            "name": "Lily of the Valley",
+            "view": "mountainside",
+            "Details": {
+                "Description": "<p>Lily of the Valley embodies purity, silence, and renewal.<br />This cottage is the resort’s most tranquil space — ideal for guests seeking solitude, reflection, or a meditative retreat. Its design draws from alpine minimalism: light birch wood, white linen, and stone-gray accents that echo the cool tones of morning mist.<br />Every corner whispers stillness and care, creating a space where guests feel both grounded and elevated.</p>",
+                "View": "<p>Perched higher on the slope, Lily of the Valley overlooks the misty upper forest and distant peaks.<br />Each morning, low clouds drift past its windows, filling the air with the scent of pine and dew. The view is serene — mountains rising and fading into the horizon like watercolor.</p>",
+                "FurnitureDescription": "<p>The interior of Lily of the Valley feels like a breath of clean air — bright, uncluttered, and graceful.</p><p>A king-size bed framed in pale birch wood, dressed in white linen and soft wool.</p><p>A small writing desk facing the mountain view — perfect for journaling or quiet tea.</p><p>Armchair and reading lamp in a cozy corner beneath a sloped wooden ceiling.</p><p>Sheer curtains, stone vases, and a single silver mirror complete the minimalist atmosphere.<br />Every piece exists with purpose, allowing space and light to become part of the design.</p>",
+                "BathroomDescription": "<p>The bathroom mirrors the clarity and calm of the mountain air.</p><p>A soaking tub of white porcelain stands beside a tall window that frames the pines.</p><p>Marble vanity with brushed metal fixtures and a built-in soft light mirror.</p><p>Lily-scented bath products and cedar bath salts add gentle fragrance.</p><p>Heated stone floors provide subtle warmth on cool mornings.<br />The result is meditative — a private retreat where time slows and the senses reset.</p>",
+                "AmenitiesDescription": "<p>Every amenity in Lily of the Valley is chosen for quiet luxury:</p><p>Herbal infuser with chamomile, mint, and mountain honey.</p><p>Essential oil diffuser, Bluetooth sound system, and Wi-Fi.</p><p>Electric fireplace and heated towel rack for cooler evenings.</p><p>Private terrace with a small meditation bench overlooking the valley.<br />Here, silence becomes the true comfort — a cottage made for inner peace and morning mist.</p>"
+            },
+            "Photos": [
+                "Lily_of_the_Valley_room.png",
+                "Lily_of_the_Valley_bathroom.png",
+                "Lily_of_the_Valley_view.png"
+            ],
+            "PricePerNight": 200.0,
+            "Bookings": [],
+            "CurrentlyOccupied": false
+        }
+    ]
