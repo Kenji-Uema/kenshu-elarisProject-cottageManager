@@ -41,7 +41,7 @@ func main() {
 	startCtx, startCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer startCancel()
 
-	mongoDb, err := mdb.NewMongoDb(startCtx, "mongodb://admin:admin123@localhost:32017", "CeladonHotel")
+	mongoDb, err := mdb.NewMongoDb(startCtx, "mongodb://admin:admin123@localhost:32017", "CeladonLuxuryCottage")
 	if err != nil {
 		logger.Error("failed to connect to MongoDB", "err", err)
 		os.Exit(1)

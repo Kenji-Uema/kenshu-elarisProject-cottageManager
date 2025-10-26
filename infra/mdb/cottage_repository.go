@@ -20,7 +20,7 @@ type cottageRepo struct {
 }
 
 func NewCottageRepo(db *mongo.Database) port.CottageRepo {
-	return &cottageRepo{collection: db.Collection("cottage")}
+	return &cottageRepo{collection: db.Collection("Cottage")}
 }
 
 func (r *cottageRepo) GetAll(ctx context.Context) ([]domain.Cottage, error) {

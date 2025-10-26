@@ -8,10 +8,10 @@ import (
 )
 
 type RequestDto struct {
-	GuestId        string    `json:"mainGuest"`
-	NumberOfGuests int       `json:"numberOfGuests"`
-	CheckInDate    time.Time `json:"checkInDate" time_format:"2006-01-02"`
-	CheckOutDate   time.Time `json:"checkOutDate" time_format:"2006-01-02"`
+	GuestId        string `json:"mainGuest"`
+	NumberOfGuests int    `json:"numberOfGuests"`
+	CheckInDate    string `json:"checkInDate"`
+	CheckOutDate   string `json:"checkOutDate"`
 }
 
 type ConfirmationDto struct {
@@ -24,12 +24,21 @@ func (bookingDto *RequestDto) ToDomain(cottageName string) (domain.Booking, erro
 		return domain.Booking{}, err
 	}
 
+	checkInDate, err := time.Parse("2006-01-02", bookingDto.CheckInDate)
+	if err != nil {
+		return domain.Booking{}, err
+	}
+	checkOutDate, err := time.Parse("2006-01-02", bookingDto.CheckOutDate)
+	if err != nil {
+		return domain.Booking{}, err
+	}
+
 	return domain.Booking{
 		MainGuest:      mainGuestId,
 		NumberOfGuests: bookingDto.NumberOfGuests,
 		StayPeriod: domain.Period{
-			Start: bookingDto.CheckInDate,
-			End:   bookingDto.CheckOutDate,
+			Start: checkInDate,
+			End:   checkOutDate,
 		},
 		CottageName: cottageName,
 	}, nil
