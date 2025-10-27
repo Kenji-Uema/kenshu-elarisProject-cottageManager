@@ -2,7 +2,7 @@
     {
         "Id": "86a7d3bb21169a393dd1db1b",
         "Name": "Rose",
-        "Type": "Luxury",
+        "View": "Luxury",
         "Details": {
             "Description":"Sea view",
             "View": "Sea",
@@ -18,7 +18,7 @@
     {
         "Id": "86a7d3bb21169a393dd1db1c",
         "Name": "Lily",
-        "Type": "Standard",
+        "View": "Standard",
         "Details": {
             "Description": "Garden view",
             "View": "Garden"
@@ -31,7 +31,7 @@
     {
         "Id": "86a7d3bb21169a393dd1d111",
         "Name": "Daisy",
-        "Type": "Luxury",
+        "View": "Luxury",
         "Details": {
             "Description": "Forest edge",
             "View": "Forest"

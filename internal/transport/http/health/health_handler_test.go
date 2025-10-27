@@ -15,7 +15,7 @@ type readinessStub struct {
 	err error
 }
 
-func (r readinessStub) Ping(ctx context.Context) error {
+func (r readinessStub) Ping(context.Context) error {
 	return r.err
 }
 

@@ -1,8 +1,8 @@
-package mdb
+package db
 
 import (
 	"context"
-	"cottageManager/domain"
+	"cottageManager/internal/domain"
 	"reflect"
 	"slices"
 	"testing"
@@ -70,8 +70,8 @@ func Test_cottageRepo_GetByName(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GetByName() unexpected error: %v", err)
 			}
-			if got.Name != "Rose" || got.View != "Luxury" {
-				t.Errorf("GetByName() got = %+v, want name Rose and type Luxury", got)
+			if got.Name != "Rose" || got.Details.View != "Sea" {
+				t.Errorf("GetByName() got = %+v, want name Rose and details view Sea", got)
 			}
 		})
 
