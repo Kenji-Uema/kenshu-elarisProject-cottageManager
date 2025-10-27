@@ -3,13 +3,14 @@ package ginkgo_test
 import (
 	"bytes"
 	"context"
-	"cottageManager/app"
-	"cottageManager/domain"
-	"cottageManager/infra/logging"
-	"cottageManager/infra/mdb"
-	"cottageManager/transport/http/availability"
-	"cottageManager/transport/http/booking"
-	"cottageManager/transport/http/cottage"
+	"cottageManager/internal/app"
+	"cottageManager/internal/config"
+	"cottageManager/internal/domain"
+	mdb "cottageManager/internal/infra/db"
+	"cottageManager/internal/infra/logging"
+	"cottageManager/internal/transport/http/availability"
+	"cottageManager/internal/transport/http/booking"
+	"cottageManager/internal/transport/http/cottage"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -61,8 +62,8 @@ var _ = BeforeSuite(func() {
 
 	db = mongoClient.Database(testDatabaseName)
 
-	cottageRepo := mdb.NewCottageRepo(db)
-	bookingRepo := mdb.NewBookingRepo(db)
+	cottageRepo := mdb.NewCottageRepo(db, &config.CottageCollectionConfig{Name: "cottage"})
+	bookingRepo := mdb.NewBookingRepo(db, &config.BookingCollectionConfig{Name: "booking"})
 
 	availabilityService := app.NewAvailabilityService(cottageRepo, bookingRepo)
 	cottageService := app.NewCottageService(cottageRepo)
@@ -201,8 +202,8 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 		bookingRequest, err := json.Marshal(booking.RequestDto{
 			GuestId:        primitive.NewObjectID().Hex(),
 			NumberOfGuests: 2,
-			CheckInDate:    lilyAvailablePeriods[0].From,
-			CheckOutDate:   lilyAvailablePeriods[0].To,
+			CheckInDate:    lilyAvailablePeriods[0].From.Format("2006-01-02"),
+			CheckOutDate:   lilyAvailablePeriods[0].To.Format("2006-01-02"),
 		})
 
 		if err != nil {

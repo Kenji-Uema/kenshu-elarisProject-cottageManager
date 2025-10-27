@@ -2,16 +2,19 @@ package main
 
 import (
 	"context"
-	"cottageManager/app"
-	"cottageManager/infra/logging"
-	"cottageManager/infra/mdb"
-	"cottageManager/infra/telemetry"
-	"cottageManager/transport/http/availability"
-	"cottageManager/transport/http/booking"
-	"cottageManager/transport/http/cottage"
-	"cottageManager/transport/http/health"
-	"cottageManager/transport/http/middleware"
+	"cottageManager/internal/app"
+	"cottageManager/internal/config"
+	"cottageManager/internal/infra/db"
+	"cottageManager/internal/infra/logging"
+	"cottageManager/internal/infra/telemetry"
+	"cottageManager/internal/transport/http/availability"
+	"cottageManager/internal/transport/http/booking"
+	"cottageManager/internal/transport/http/cottage"
+	"cottageManager/internal/transport/http/health"
+	"cottageManager/internal/transport/http/middleware"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,32 +26,23 @@ import (
 )
 
 func main() {
-	logger := logging.Setup()
+	ginConfig := config.LoadConfig[config.GinConfig]()
+	mongoConfig := config.LoadConfig[config.MongoDbConfig]()
+	cottageConfig := config.LoadConfig[config.CottageCollectionConfig]()
+	bookingConfig := config.LoadConfig[config.BookingCollectionConfig]()
 
-	telemetryProvider, err := telemetry.Setup(context.Background(), logger)
-	if err != nil {
-		logger.Error("failed to initialise telemetry", "err", err)
-		os.Exit(1)
-	}
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := telemetryProvider.Shutdown(shutdownCtx); err != nil {
-			logger.Error("failed to shutdown telemetry", "err", err)
-		}
-	}()
+	logger, telemetryProvider, err := telemetrySetup()
 
-	startCtx, startCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer startCancel()
+	mongoDb := mongoDbSetup(mongoConfig, err, logger)
 
-	mongoDb, err := mdb.NewMongoDb(startCtx, "mongodb://admin:admin123@localhost:32017", "CeladonLuxuryCottage")
-	if err != nil {
-		logger.Error("failed to connect to MongoDB", "err", err)
-		os.Exit(1)
-	}
+	router := ginSetup(telemetryProvider)
+	routerSetup(mongoDb, router, cottageConfig, bookingConfig)
+	ginSpinUP(ginConfig, router, logger)
+}
 
-	cottageRepo := mdb.NewCottageRepo(mongoDb.Database)
-	bookingRepo := mdb.NewBookingRepo(mongoDb.Database)
+func routerSetup(mongoDb *db.Db, router *gin.Engine, cotttageConf *config.CottageCollectionConfig, bookingConf *config.BookingCollectionConfig) {
+	cottageRepo := db.NewCottageRepo(mongoDb.Database, cotttageConf)
+	bookingRepo := db.NewBookingRepo(mongoDb.Database, bookingConf)
 
 	availabilityService := app.NewAvailabilityService(cottageRepo, bookingRepo)
 	cottageService := app.NewCottageService(cottageRepo)
@@ -59,21 +53,9 @@ func main() {
 	cottageHandler := cottage.NewHandler(cottageService)
 	healthHandler := health.NewHandler(mongoDb)
 
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.Use(otelgin.Middleware(telemetryProvider.ServiceName()))
-	router.Use(middleware.RequestLogger())
-
-	router.Use(func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-		defer cancel()
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	})
-
 	// service health check endpoints
-	router.GET("/healthz", healthHandler.Health)
-	router.GET("/readyz", healthHandler.Readiness)
+	router.GET("/health", healthHandler.Health)
+	router.GET("/ready", healthHandler.Readiness)
 
 	// return the list with details of all cottages
 	router.GET("/cottages", cottageHandler.GetAll)
@@ -89,9 +71,26 @@ func main() {
 	router.POST("/cottage/:name/booking", bookingHandler.AddBooking)
 	// delete a booking for a given cottage
 	router.DELETE("/cottage/:name/booking/:bookingId", bookingHandler.RemoveBooking)
+}
 
+func ginSetup(telemetryProvider telemetry.Provider) *gin.Engine {
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(otelgin.Middleware(telemetryProvider.ServiceName()))
+	router.Use(middleware.RequestLogger())
+
+	router.Use(func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
+	return router
+}
+
+func ginSpinUP(ginConfig *config.GinConfig, router *gin.Engine, logger *slog.Logger) {
 	srv := &http.Server{
-		Addr:    "localhost:8080",
+		Addr:    fmt.Sprintf("localhost:%v", ginConfig.Port),
 		Handler: router,
 	}
 
@@ -115,4 +114,35 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("server exited gracefully")
+}
+
+func mongoDbSetup(config *config.MongoDbConfig, err error, logger *slog.Logger) *db.Db {
+	startCtx, startCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer startCancel()
+
+	mongoDb, err := db.NewMongoDb(startCtx,
+		fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Url, config.Port), config.Db)
+	if err != nil {
+		logger.Error("failed to connect to MongoDB", "err", err)
+		os.Exit(1)
+	}
+	return mongoDb
+}
+
+func telemetrySetup() (*slog.Logger, telemetry.Provider, error) {
+	logger := logging.Setup()
+
+	telemetryProvider, err := telemetry.Setup(context.Background(), logger)
+	if err != nil {
+		logger.Error("failed to initialise telemetry", "err", err)
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := telemetryProvider.Shutdown(shutdownCtx); err != nil {
+			logger.Error("failed to shutdown telemetry", "err", err)
+		}
+	}()
+	return logger, telemetryProvider, err
 }
