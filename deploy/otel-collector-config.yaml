@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+data:
+  otel-collector.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 400
+        spike_limit_mib: 100
+      batch:
+        send_batch_size: 512
+        timeout: 5s
+
+    exporters:
+      logging:
+        loglevel: info
+
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      pprof:
+        endpoint: 0.0.0.0:1777
+      zpages:
+        endpoint: 0.0.0.0:55679
+
+    service:
+      extensions: [health_check, pprof, zpages]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [logging]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [logging]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [logging]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: otel-collector
+  labels:
+    app: otel-collector
+spec:
+  containers:
+    - name: otel-collector
+      image: otel/opentelemetry-collector-contrib:0.138.0
+      args:
+        - "--config=/etc/otelcol/otel-collector.yaml"
+      ports:
+        - name: otlp-grpc
+          containerPort: 4317
+        - name: otlp-http
+          containerPort: 4318
+        - name: front
+          containerPort: 55679
+      volumeMounts:
+        - name: otel-config
+          mountPath: /etc/otelcol/otel-collector.yaml
+          subPath: otel-collector.yaml
+  volumes:
+    - name: otel-config
+      configMap:
+        name: otel-collector-config
+        items:
+          - key: otel-collector.yaml
+            path: otel-collector.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector-nodeport
+  labels:
+    app: otel-collector
+spec:
+  type: NodePort
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      protocol: TCP
+      port: 4317
+      targetPort: 4317
+      nodePort: 31317
+    - name: otlp-http
+      protocol: TCP
+      port: 4318
+      targetPort: 4318
+      nodePort: 31318
+    - name: front
+      protocol: TCP
+      port: 55679
+      targetPort: 55679
+      nodePort: 31319

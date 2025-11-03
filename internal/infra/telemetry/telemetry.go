@@ -2,168 +2,163 @@ package telemetry
 
 import (
 	"context"
+	"cottageManager/internal/config"
 	"errors"
-	"fmt"
-	"log/slog"
-	"os"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
-	"go.opentelemetry.io/otel/trace"
 )
 
-// Provider wraps OpenTelemetry wiring so callers can shut it down gracefully.
-type Provider struct {
-	serviceName string
-	shutdown    func(context.Context) error
-}
+type Shutdown func(context.Context) error
 
-// ServiceName returns the configured service name for telemetry exporters.
-func (p Provider) ServiceName() string {
-	return p.serviceName
-}
-
-// Shutdown flushes telemetry data and releases related resources.
-func (p Provider) Shutdown(ctx context.Context) error {
-	if p.shutdown == nil {
-		return nil
-	}
-	return p.shutdown(ctx)
-}
-
-// Setup configures OpenTelemetry tracing using environment-driven configuration.
-// It prefers OTLP/HTTP exporter and falls back to stdout tracing when OTLP is not available.
-func Setup(ctx context.Context, logger *slog.Logger) (Provider, error) {
-	log := logger
-	if log == nil {
-		log = slog.Default()
+func Setup(ctx context.Context, telemetryConfig *config.TelemetryConfig) (Shutdown, error) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	serviceName := resolveServiceName()
-	if disabled, err := shouldDisableSDK(); err != nil {
-		log.Warn("invalid OTEL_SDK_DISABLED value", "value", os.Getenv("OTEL_SDK_DISABLED"), "error", err)
-	} else if disabled {
-		otel.SetTracerProvider(trace.NewNoopTracerProvider())
-		log.Info("telemetry disabled via OTEL_SDK_DISABLED")
-		return Provider{serviceName: serviceName}, nil
+	cfg := sanitizeTelemetryConfig(telemetryConfig)
+	if cfg == nil {
+		return nil, nil
 	}
 
-	res, err := newResource(ctx, serviceName)
+	shutdown, err := initOtel(ctx, cfg)
 	if err != nil {
-		return Provider{}, fmt.Errorf("failed to build telemetry resource: %w", err)
+		return nil, err
 	}
 
-	exp, err := newSpanExporter(ctx, log)
+	return shutdown, nil
+}
+
+func initOtel(ctx context.Context, otelConfig *config.TelemetryConfig) (Shutdown, error) {
+	endpoint := strings.TrimSpace(otelConfig.ExporterEndpoint)
+	if endpoint == "" {
+		endpoint = "localhost:4317"
+	}
+
+	res, err := resource.New(ctx,
+		resource.WithFromEnv(),
+		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String(otelConfig.ServiceName),
+			semconv.DeploymentEnvironmentKey.String(otelConfig.DeploymentEnv),
+			semconv.ServiceVersionKey.String(otelConfig.ServiceVersion),
+		),
+	)
 	if err != nil {
-		return Provider{}, fmt.Errorf("failed to create trace exporter: %w", err)
+		return nil, err
 	}
 
-	opts := []sdktrace.TracerProviderOption{sdktrace.WithResource(res)}
-	if exp != nil {
-		opts = append(opts, sdktrace.WithBatcher(exp))
-	} else {
-		opts = append(opts, sdktrace.WithSampler(sdktrace.NeverSample()))
+	traceExp, err := otlptracegrpc.New(ctx, traceClientOptions(endpoint, otelConfig)...)
+	if err != nil {
+		return nil, err
 	}
 
-	tp := sdktrace.NewTracerProvider(opts...)
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(res),
+		sdktrace.WithBatcher(traceExp),
+	)
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
-	log.Info("telemetry initialised", "service", serviceName)
+	metricExp, err := otlpmetricgrpc.New(ctx, metricClientOptions(endpoint, otelConfig)...)
+	if err != nil {
+		return nil, err
+	}
 
-	return Provider{
-		serviceName: serviceName,
-		shutdown: func(ctx context.Context) error {
-			return tp.Shutdown(ctx)
-		},
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp,
+			sdkmetric.WithInterval(10*time.Second),
+		)),
+	)
+	otel.SetMeterProvider(mp)
+
+	return func(ctx context.Context) error {
+		var errs []error
+		if err := mp.Shutdown(ctx); err != nil {
+			errs = append(errs, err)
+		}
+		if err := tp.Shutdown(ctx); err != nil {
+			errs = append(errs, err)
+		}
+		return errors.Join(errs...)
 	}, nil
 }
 
-func newSpanExporter(ctx context.Context, logger *slog.Logger) (sdktrace.SpanExporter, error) {
-	exporter := strings.ToLower(strings.TrimSpace(os.Getenv("OTEL_TRACES_EXPORTER")))
+func traceClientOptions(endpoint string, cfg *config.TelemetryConfig) []otlptracegrpc.Option {
+	opts := make([]otlptracegrpc.Option, 0, 3)
 
-	switch exporter {
-	case "none":
-		logger.Info("OTEL tracing disabled", "OTEL_TRACES_EXPORTER", exporter)
-		return nil, nil
-	case "stdout":
-		return stdouttrace.New(stdouttrace.WithPrettyPrint())
-	case "", "otlp":
-		exp, err := otlptracehttp.New(ctx)
-		if err != nil {
-			logger.Warn("failed to create OTLP trace exporter, falling back to stdout", "error", err)
-			return stdouttrace.New(stdouttrace.WithPrettyPrint())
-		}
-		return exp, nil
-	default:
-		logger.Warn("unsupported OTEL_TRACES_EXPORTER, using stdout exporter", "value", exporter)
-		return stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if hasScheme(endpoint) {
+		opts = append(opts, otlptracegrpc.WithEndpointURL(endpoint))
+	} else {
+		opts = append(opts, otlptracegrpc.WithEndpoint(endpoint))
 	}
+
+	if shouldUseInsecure(endpoint, cfg) {
+		opts = append(opts, otlptracegrpc.WithInsecure())
+	}
+
+	return opts
 }
 
-func newResource(ctx context.Context, serviceName string) (*resource.Resource, error) {
-	attrs := []attribute.KeyValue{semconv.ServiceName(serviceName)}
+func metricClientOptions(endpoint string, cfg *config.TelemetryConfig) []otlpmetricgrpc.Option {
+	opts := make([]otlpmetricgrpc.Option, 0, 3)
 
-	if version := strings.TrimSpace(os.Getenv("SERVICE_VERSION")); version != "" {
-		attrs = append(attrs, semconv.ServiceVersion(version))
+	if hasScheme(endpoint) {
+		opts = append(opts, otlpmetricgrpc.WithEndpointURL(endpoint))
+	} else {
+		opts = append(opts, otlpmetricgrpc.WithEndpoint(endpoint))
 	}
 
-	if env := resolveDeploymentEnvironment(); env != "" {
-		attrs = append(attrs, semconv.DeploymentEnvironment(env))
+	if shouldUseInsecure(endpoint, cfg) {
+		opts = append(opts, otlpmetricgrpc.WithInsecure())
 	}
 
-	return resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
-		resource.WithOS(),
-		resource.WithProcess(),
-		resource.WithHost(),
-		resource.WithAttributes(attrs...),
-	)
+	return opts
 }
 
-func resolveServiceName() string {
-	if fromEnv := strings.TrimSpace(os.Getenv("OTEL_SERVICE_NAME")); fromEnv != "" {
-		return fromEnv
+func sanitizeTelemetryConfig(in *config.TelemetryConfig) *config.TelemetryConfig {
+	if in == nil {
+		return nil
 	}
 
-	if fromEnv := strings.TrimSpace(os.Getenv("SERVICE_NAME")); fromEnv != "" {
-		return fromEnv
+	cfg := *in
+	cfg.ExporterEndpoint = strings.TrimSpace(cfg.ExporterEndpoint)
+	cfg.ServiceName = strings.TrimSpace(cfg.ServiceName)
+	cfg.DeploymentEnv = strings.TrimSpace(cfg.DeploymentEnv)
+	cfg.ServiceVersion = strings.TrimSpace(cfg.ServiceVersion)
+
+	if cfg.ExporterEndpoint == "" {
+		cfg.ExporterEndpoint = "localhost:4317"
+	}
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = "cottage-manager"
+	}
+	if cfg.DeploymentEnv == "" {
+		cfg.DeploymentEnv = "development"
+	}
+	if cfg.ServiceVersion == "" {
+		cfg.ServiceVersion = "0.0.1"
 	}
 
-	return "cottage-manager"
+	return &cfg
 }
 
-func resolveDeploymentEnvironment() string {
-	envVars := []string{"DEPLOYMENT_ENVIRONMENT", "APP_ENV", "ENVIRONMENT"}
-	for _, key := range envVars {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-			return value
-		}
+func shouldUseInsecure(endpoint string, cfg *config.TelemetryConfig) bool {
+	if cfg != nil {
+		return cfg.UseInsecure
 	}
-	return ""
+
+	return !strings.HasPrefix(strings.ToLower(endpoint), "https://")
 }
 
-func shouldDisableSDK() (bool, error) {
-	raw := strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED"))
-	if raw == "" {
-		return false, nil
-	}
-
-	lowered := strings.ToLower(raw)
-	switch lowered {
-	case "true", "1", "yes":
-		return true, nil
-	case "false", "0", "no":
-		return false, nil
-	default:
-		return false, errors.New("invalid value for OTEL_SDK_DISABLED")
-	}
+func hasScheme(endpoint string) bool {
+	return strings.Contains(endpoint, "://")
 }

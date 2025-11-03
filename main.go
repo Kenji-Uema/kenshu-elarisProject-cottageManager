@@ -26,22 +26,64 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	ginConfig := config.LoadConfig[config.GinConfig]()
 	mongoConfig := config.LoadConfig[config.MongoDbConfig]()
 	cottageConfig := config.LoadConfig[config.CottageCollectionConfig]()
 	bookingConfig := config.LoadConfig[config.BookingCollectionConfig]()
+	loggingConfig := config.LoadConfig[config.LogConfig]()
+	telemetryConfig := config.LoadConfig[config.TelemetryConfig]()
 
-	logger, telemetryProvider, err := telemetrySetup()
+	loggingShutdown, err := logging.Setup(ctx, loggingConfig, telemetryConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "logging setup failed: %v\n", err)
+	}
 
-	mongoDb := mongoDbSetup(mongoConfig, err, logger)
+	telemetryShutdown, err := telemetry.Setup(ctx, telemetryConfig)
+	if err != nil {
+		slog.Error("otel init failed", "err", err)
+		os.Exit(1)
+	}
 
-	router := ginSetup(telemetryProvider)
+	mongoDb := mongoDbSetup(mongoConfig)
+
+	router := ginSetup()
 	routerSetup(mongoDb, router, cottageConfig, bookingConfig)
-	ginSpinUP(ginConfig, router, logger)
+	server := ginSpinUP(ginConfig, router)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	slog.Info("shutdown signal received")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		slog.Error("server shutdown failed", "err", err)
+	}
+
+	if err := mongoDb.Close(shutdownCtx); err != nil {
+		slog.Error("mongo shutdown failed", "err", err)
+	}
+
+	if telemetryShutdown != nil {
+		if err := telemetryShutdown(shutdownCtx); err != nil {
+			slog.Error("otel shutdown failed", "err", err)
+		}
+	}
+
+	slog.Info("server exited gracefully")
+
+	if loggingShutdown != nil {
+		if err := loggingShutdown(shutdownCtx); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to flush logs: %v\n", err)
+		}
+	}
 }
 
-func routerSetup(mongoDb *db.Db, router *gin.Engine, cotttageConf *config.CottageCollectionConfig, bookingConf *config.BookingCollectionConfig) {
-	cottageRepo := db.NewCottageRepo(mongoDb.Database, cotttageConf)
+func routerSetup(mongoDb *db.Db, router *gin.Engine, cottageConf *config.CottageCollectionConfig, bookingConf *config.BookingCollectionConfig) {
+	cottageRepo := db.NewCottageRepo(mongoDb.Database, cottageConf)
 	bookingRepo := db.NewBookingRepo(mongoDb.Database, bookingConf)
 
 	availabilityService := app.NewAvailabilityService(cottageRepo, bookingRepo)
@@ -73,10 +115,10 @@ func routerSetup(mongoDb *db.Db, router *gin.Engine, cotttageConf *config.Cottag
 	router.DELETE("/cottage/:name/booking/:bookingId", bookingHandler.RemoveBooking)
 }
 
-func ginSetup(telemetryProvider telemetry.Provider) *gin.Engine {
+func ginSetup() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(otelgin.Middleware(telemetryProvider.ServiceName()))
+	router.Use(otelgin.Middleware("cottageManager"))
 	router.Use(middleware.RequestLogger())
 
 	router.Use(func(c *gin.Context) {
@@ -88,61 +130,35 @@ func ginSetup(telemetryProvider telemetry.Provider) *gin.Engine {
 	return router
 }
 
-func ginSpinUP(ginConfig *config.GinConfig, router *gin.Engine, logger *slog.Logger) {
+func ginSpinUP(ginConfig *config.GinConfig, router *gin.Engine) *http.Server {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("localhost:%v", ginConfig.Port),
 		Handler: router,
 	}
 
 	go func() {
-		logger.Info("http server listening", "addr", srv.Addr)
+		slog.Info("http server listening", "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server error", "err", err)
+			slog.Error("server error", "err", err)
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	logger.Info("shutdown signal received")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("server shutdown failed", "err", err)
-		os.Exit(1)
-	}
-	logger.Info("server exited gracefully")
+	return srv
 }
 
-func mongoDbSetup(config *config.MongoDbConfig, err error, logger *slog.Logger) *db.Db {
+func mongoDbSetup(config *config.MongoDbConfig) *db.Db {
 	startCtx, startCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer startCancel()
 
-	mongoDb, err := db.NewMongoDb(startCtx,
-		fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Url, config.Port), config.Db)
+	mongoUri := fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Url, config.Port)
+
+	mongoDb, err := db.NewMongoDb(startCtx, mongoUri, config.Db)
 	if err != nil {
-		logger.Error("failed to connect to MongoDB", "err", err)
+		slog.ErrorContext(startCtx, "failed to connect to MongoDB", "err", err)
 		os.Exit(1)
 	}
+
+	slog.InfoContext(startCtx, "connected to MongoDB")
+
 	return mongoDb
-}
-
-func telemetrySetup() (*slog.Logger, telemetry.Provider, error) {
-	logger := logging.Setup()
-
-	telemetryProvider, err := telemetry.Setup(context.Background(), logger)
-	if err != nil {
-		logger.Error("failed to initialise telemetry", "err", err)
-		os.Exit(1)
-	}
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := telemetryProvider.Shutdown(shutdownCtx); err != nil {
-			logger.Error("failed to shutdown telemetry", "err", err)
-		}
-	}()
-	return logger, telemetryProvider, err
 }

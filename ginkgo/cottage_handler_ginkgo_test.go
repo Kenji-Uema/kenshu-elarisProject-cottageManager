@@ -36,16 +36,21 @@ var (
 	mongoClient    *mongo.Client
 	db             *mongo.Database
 	router         *gin.Engine
+	logShutdown    func(context.Context) error
 )
 
 var _ = BeforeSuite(func() {
 	gin.SetMode(gin.TestMode)
-	logging.Setup()
+	var err error
+	logShutdown, err = logging.Setup(context.Background(), &config.LogConfig{
+		Level:  "info",
+		Format: "text",
+	}, nil)
+	Expect(err).NotTo(HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	var err error
 	mongoContainer, err = mongodb.Run(
 		ctx,
 		"mongo:latest",
@@ -102,6 +107,10 @@ var _ = AfterSuite(func() {
 
 	if mongoContainer != nil {
 		_ = testcontainers.TerminateContainer(mongoContainer)
+	}
+
+	if logShutdown != nil {
+		_ = logShutdown(context.Background())
 	}
 })
 
