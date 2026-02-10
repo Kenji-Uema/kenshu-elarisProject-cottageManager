@@ -2,10 +2,11 @@ package logging
 
 import (
 	"context"
-	"cottageManager/internal/config"
 	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/Kenji-Uema/cottageManager/internal/config"
 )
 
 func Setup(ctx context.Context, logConfig config.LogConfig, telemetryConfig config.TelemetryConfig) (func(context.Context) error, error) {

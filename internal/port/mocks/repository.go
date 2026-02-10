@@ -6,7 +6,7 @@ package mocks
 
 import (
 	context "context"
-	domain "cottageManager/internal/domain"
+	domain "github.com/Kenji-Uema/cottageManager/internal/domain"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

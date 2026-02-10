@@ -1,4 +1,4 @@
-module cottageManager
+module github.com/Kenji-Uema/cottageManager
 
 go 1.24.0
 

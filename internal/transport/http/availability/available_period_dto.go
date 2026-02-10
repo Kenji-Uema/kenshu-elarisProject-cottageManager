@@ -1,8 +1,9 @@
 package availability
 
 import (
-	"cottageManager/internal/domain"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 )
 
 type AvailablePeriodDTO struct {

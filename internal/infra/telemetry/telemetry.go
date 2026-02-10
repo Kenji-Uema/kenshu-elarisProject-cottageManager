@@ -2,10 +2,11 @@ package telemetry
 
 import (
 	"context"
-	"cottageManager/internal/config"
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/config"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"

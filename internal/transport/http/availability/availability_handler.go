@@ -1,10 +1,11 @@
 package availability
 
 import (
-	"cottageManager/internal/app"
-	"cottageManager/internal/transport/http/common"
 	"log/slog"
 	"net/http"
+
+	"github.com/Kenji-Uema/cottageManager/internal/app"
+	"github.com/Kenji-Uema/cottageManager/internal/transport/http/common"
 
 	"github.com/gin-gonic/gin"
 )

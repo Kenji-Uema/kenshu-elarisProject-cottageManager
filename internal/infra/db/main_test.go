@@ -2,12 +2,13 @@ package db
 
 import (
 	"context"
-	domain2 "cottageManager/internal/domain"
 	"encoding/json"
 	"log"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mongodb"
@@ -59,8 +60,8 @@ func setupAndRun(t *testing.T, test func(t *testing.T, ct *mongo.Collection, br 
 	cottageCollection := db.Collection("cottage")
 	bookingCollection := db.Collection("booking")
 
-	seed[domain2.Cottage](t, cottageCollection, "test_data/cottages.json")
-	seed[domain2.Booking](t, bookingCollection, "test_data/bookings.json")
+	seed[domain.Cottage](t, cottageCollection, "test_data/cottages.json")
+	seed[domain.Booking](t, bookingCollection, "test_data/bookings.json")
 
 	t.Cleanup(func() {
 		_ = cottageCollection.Drop(context.Background())
@@ -70,7 +71,7 @@ func setupAndRun(t *testing.T, test func(t *testing.T, ct *mongo.Collection, br 
 	test(t, cottageCollection, bookingCollection)
 }
 
-func seed[D domain2.Cottage | domain2.Booking](t *testing.T, collection *mongo.Collection, filepath string) {
+func seed[D domain.Cottage | domain.Booking](t *testing.T, collection *mongo.Collection, filepath string) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)

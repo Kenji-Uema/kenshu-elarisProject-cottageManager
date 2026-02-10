@@ -2,13 +2,13 @@ package app
 
 import (
 	"context"
-	"cottageManager/internal/app/mocks"
-	"cottageManager/internal/domain"
-	"cottageManager/internal/domain/errors/appErrors"
-	"cottageManager/internal/domain/errors/dbErrors"
-	portmocks "cottageManager/internal/port/mocks"
 	"errors"
 	"fmt"
+	"github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
+	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
 	"testing"
 	"time"
 

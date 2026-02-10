@@ -2,9 +2,10 @@ package logging
 
 import (
 	"context"
-	"cottageManager/internal/config"
 	"fmt"
 	"log/slog"
+
+	"github.com/Kenji-Uema/cottageManager/internal/config"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"

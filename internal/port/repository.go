@@ -2,7 +2,8 @@ package port
 
 import (
 	"context"
-	"cottageManager/internal/domain"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

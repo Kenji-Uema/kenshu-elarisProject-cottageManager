@@ -2,12 +2,13 @@ package booking
 
 import (
 	"bytes"
-	appmocks "cottageManager/internal/app/mocks"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"

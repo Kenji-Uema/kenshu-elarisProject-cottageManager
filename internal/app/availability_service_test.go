@@ -2,8 +2,8 @@ package app
 
 import (
 	"context"
-	"cottageManager/internal/domain"
-	portmocks "cottageManager/internal/port/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
 	"reflect"
 	"testing"
 	"time"

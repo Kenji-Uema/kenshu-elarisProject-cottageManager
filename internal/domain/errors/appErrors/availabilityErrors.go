@@ -1,8 +1,9 @@
 package appErrors
 
 import (
-	"cottageManager/internal/domain"
 	"fmt"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 )
 
 type CottageNotAvailableUnexpectedError struct {

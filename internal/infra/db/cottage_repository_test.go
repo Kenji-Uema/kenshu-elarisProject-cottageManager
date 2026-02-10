@@ -2,11 +2,12 @@ package db
 
 import (
 	"context"
-	"cottageManager/internal/domain"
 	"reflect"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

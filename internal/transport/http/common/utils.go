@@ -1,11 +1,12 @@
 package common
 
 import (
-	"cottageManager/internal/domain"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
 	"github.com/gin-gonic/gin"
 )

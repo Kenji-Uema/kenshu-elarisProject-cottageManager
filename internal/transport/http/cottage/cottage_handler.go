@@ -1,11 +1,12 @@
 package cottage
 
 import (
-	"cottageManager/internal/app"
-	"cottageManager/internal/domain/errors/appErrors"
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"github.com/Kenji-Uema/cottageManager/internal/app"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 
 	"github.com/gin-gonic/gin"
 )

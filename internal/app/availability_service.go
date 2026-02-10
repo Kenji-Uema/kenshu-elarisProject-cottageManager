@@ -2,12 +2,13 @@ package app
 
 import (
 	"context"
-	"cottageManager/internal/domain"
-	"cottageManager/internal/domain/errors/appErrors"
-	"cottageManager/internal/port"
 	"log/slog"
 	"sort"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
+	"github.com/Kenji-Uema/cottageManager/internal/port"
 )
 
 type AvailabilityService interface {

@@ -1,8 +1,9 @@
 package booking
 
 import (
-	"cottageManager/internal/domain"
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

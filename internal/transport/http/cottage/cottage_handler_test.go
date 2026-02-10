@@ -1,13 +1,14 @@
 package cottage
 
 import (
-	appmocks "cottageManager/internal/app/mocks"
-	"cottageManager/internal/domain"
-	"cottageManager/internal/domain/errors/appErrors"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
