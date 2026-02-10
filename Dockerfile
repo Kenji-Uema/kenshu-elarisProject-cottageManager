@@ -1,32 +1,25 @@
-# syntax=docker/dockerfile:1.7
-
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25.6-alpine AS build
 
 WORKDIR /src
 
-COPY go.mod go.sum ./
+RUN apk add --no-cache ca-certificates
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    GOTOOLCHAIN=go1.24.1 go mod download
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOTOOLCHAIN=go1.24.1 go build -o /bin/cottageManager .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /out/cottageManager ./
 
-FROM gcr.io/distroless/base-debian12 AS runtime
+FROM gcr.io/distroless/static-debian12:nonroot
 
-WORKDIR /app
+WORKDIR /
 
-COPY --from=builder /bin/cottageManager /app/cottageManager
+COPY --from=build /out/cottageManager /cottageManager
 
 EXPOSE 8080
 
-ENV GIN_PORT=8080
-
 USER nonroot:nonroot
 
-ENTRYPOINT ["/app/cottageManager"]
-
+ENTRYPOINT ["/cottageManager"]
