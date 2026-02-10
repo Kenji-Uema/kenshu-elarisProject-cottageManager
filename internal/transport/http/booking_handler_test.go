@@ -1,4 +1,4 @@
-package booking
+package http
 
 import (
 	"bytes"
@@ -11,19 +11,16 @@ import (
 
 	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/gin-gonic/gin"
 )
 
-func setupGin() {
-	gin.SetMode(gin.TestMode)
-}
-
 func TestHandler_AddBooking(t *testing.T) {
 	setupGin()
 
-	validBody := RequestDto{
+	validBody := dto.RequestDto{
 		GuestId:        bson.NewObjectID().Hex(),
 		NumberOfGuests: 2,
 		CheckInDate:    time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
@@ -32,7 +29,7 @@ func TestHandler_AddBooking(t *testing.T) {
 
 	t.Run("success returns 200", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
 
@@ -53,7 +50,7 @@ func TestHandler_AddBooking(t *testing.T) {
 
 	t.Run("invalid JSON returns 400", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
 
@@ -69,7 +66,7 @@ func TestHandler_AddBooking(t *testing.T) {
 
 	t.Run("ToDomain error returns 400 (invalid hex id)", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
 
@@ -88,7 +85,7 @@ func TestHandler_AddBooking(t *testing.T) {
 
 	t.Run("service error returns 500", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
 
@@ -113,7 +110,7 @@ func TestHandler_RemoveBooking(t *testing.T) {
 
 	t.Run("invalid bookingId returns 400", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
@@ -128,7 +125,7 @@ func TestHandler_RemoveBooking(t *testing.T) {
 
 	t.Run("service error returns 500", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
@@ -148,7 +145,7 @@ func TestHandler_RemoveBooking(t *testing.T) {
 
 	t.Run("success returns 200", func(t *testing.T) {
 		svc := appmocks.NewMockBookingService()
-		h := NewHandler(svc)
+		h := NewBookingHandler(svc)
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
@@ -166,10 +163,3 @@ func TestHandler_RemoveBooking(t *testing.T) {
 		}
 	})
 }
-
-// re-use helper from availability tests
-type assertError string
-
-func (e assertError) Error() string { return string(e) }
-
-func assertAnyError() error { return assertError("any error") }

@@ -1,4 +1,4 @@
-package cottage
+package http
 
 import (
 	"errors"
@@ -6,25 +6,26 @@ import (
 	"net/http"
 
 	"github.com/Kenji-Uema/cottageManager/internal/app"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 
 	"github.com/gin-gonic/gin"
 )
 
-type Handler interface {
+type CottageHandler interface {
 	GetAll(c *gin.Context)
 	GetByName(c *gin.Context)
 }
 
-type handler struct {
+type cottageHandler struct {
 	service app.CottageService
 }
 
-func NewHandler(service app.CottageService) Handler {
-	return &handler{service: service}
+func NewCottageHandler(service app.CottageService) CottageHandler {
+	return &cottageHandler{service: service}
 }
 
-func (h *handler) GetAll(c *gin.Context) {
+func (h *cottageHandler) GetAll(c *gin.Context) {
 	cottages, err := h.service.GetAll(c.Request.Context())
 
 	if err != nil {
@@ -34,9 +35,9 @@ func (h *handler) GetAll(c *gin.Context) {
 		return
 	}
 
-	cottagesDto := make([]Dto, len(cottages))
+	cottagesDto := make([]dto.Dto, len(cottages))
 	for i, cottage := range cottages {
-		cottagesDto[i] = FromCottageDomainToDto(cottage)
+		cottagesDto[i] = dto.FromCottageDomainToDto(cottage)
 	}
 
 	slog.Info("cottages retrieved", "count", len(cottagesDto))
@@ -44,7 +45,7 @@ func (h *handler) GetAll(c *gin.Context) {
 
 }
 
-func (h *handler) GetByName(c *gin.Context) {
+func (h *cottageHandler) GetByName(c *gin.Context) {
 	cottageName := c.Param("name")
 
 	cottage, err := h.service.GetByName(c.Request.Context(), cottageName)
@@ -64,5 +65,5 @@ func (h *handler) GetByName(c *gin.Context) {
 	}
 
 	slog.Info("cottage retrieved", "cottage", cottageName)
-	c.JSON(http.StatusOK, FromCottageDomainToDto(cottage))
+	c.JSON(http.StatusOK, dto.FromCottageDomainToDto(cottage))
 }

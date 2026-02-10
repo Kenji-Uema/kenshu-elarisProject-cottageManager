@@ -1,4 +1,4 @@
-package availability
+package http
 
 import (
 	"context"
@@ -10,20 +10,17 @@ import (
 
 	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 
 	"github.com/gin-gonic/gin"
 )
-
-func setupGin() {
-	gin.SetMode(gin.TestMode)
-}
 
 func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 	setupGin()
 
 	t.Run("success returns 200 with periods", func(t *testing.T) {
 		svc := appmocks.NewMockAvailabilityService()
-		h := NewHandler(svc)
+		h := NewAvailabilityHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name/available-dates", h.GetAvailablePeriods)
 
@@ -41,7 +38,7 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d, body: %s", w.Code, w.Body.String())
 		}
-		var got []AvailablePeriodDTO
+		var got []dto.AvailablePeriodDTO
 		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 			t.Fatalf("invalid JSON: %v", err)
 		}
@@ -52,7 +49,7 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 
 	t.Run("service error returns 500", func(t *testing.T) {
 		svc := appmocks.NewMockAvailabilityService()
-		h := NewHandler(svc)
+		h := NewAvailabilityHandler(svc)
 		r := gin.New()
 		r.GET("/availability/:name", h.GetAvailablePeriods)
 
@@ -71,7 +68,7 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 
 	t.Run("binding error returns 400 (missing query)", func(t *testing.T) {
 		svc := appmocks.NewMockAvailabilityService()
-		h := NewHandler(svc)
+		h := NewAvailabilityHandler(svc)
 		r := gin.New()
 		r.GET("/availability/:name", h.GetAvailablePeriods)
 
@@ -91,7 +88,7 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 
 	t.Run("success returns 200 with available periods per cottage", func(t *testing.T) {
 		svc := appmocks.NewMockAvailabilityService()
-		h := NewHandler(svc)
+		h := NewAvailabilityHandler(svc)
 		r := gin.New()
 		r.GET("/availability/type/:type", h.GetAvailablePeriodsByCottageType)
 
@@ -120,7 +117,7 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 
 	t.Run("binding error returns 400 (from>to)", func(t *testing.T) {
 		svc := appmocks.NewMockAvailabilityService()
-		h := NewHandler(svc)
+		h := NewAvailabilityHandler(svc)
 		r := gin.New()
 		r.GET("/availability/type/:type", h.GetAvailablePeriodsByCottageType)
 
@@ -134,10 +131,3 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 		}
 	})
 }
-
-// helper that returns a generic error without caring about message
-func assertAnyError() error { return assertError("any error") }
-
-type assertError string
-
-func (e assertError) Error() string { return string(e) }

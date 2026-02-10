@@ -16,12 +16,7 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/infra/db"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/logging"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/telemetry"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/availability"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/booking"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/cottage"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/health"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/middleware"
-
+	httphandler "github.com/Kenji-Uema/cottageManager/internal/transport/http"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
@@ -89,10 +84,10 @@ func routerSetup(mongoDb *db.Db, router *gin.Engine, cottageConf config.CottageC
 	cottageService := app.NewCottageService(cottageRepo)
 	bookingService := app.NewBookingService(availabilityService, cottageService, bookingRepo)
 
-	availabilityHandler := availability.NewHandler(availabilityService)
-	bookingHandler := booking.NewHandler(bookingService)
-	cottageHandler := cottage.NewHandler(cottageService)
-	healthHandler := health.NewHandler(mongoDb)
+	availabilityHandler := httphandler.NewAvailabilityHandler(availabilityService)
+	bookingHandler := httphandler.NewBookingHandler(bookingService)
+	cottageHandler := httphandler.NewCottageHandler(cottageService)
+	healthHandler := httphandler.NewHandler(mongoDb)
 
 	// service health check endpoints
 	router.GET("/health", healthHandler.Health)
@@ -118,7 +113,7 @@ func ginSetup() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(otelgin.Middleware("cottageManager"))
-	router.Use(middleware.RequestLogger())
+	router.Use(httphandler.RequestLogger())
 
 	router.Use(func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
@@ -131,7 +126,7 @@ func ginSetup() *gin.Engine {
 
 func ginSpinUP(ginConfig config.AppConfig, router *gin.Engine) *http.Server {
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("localhost:%v", ginConfig.Port),
+		Addr:    fmt.Sprintf("%s:%d", ginConfig.Host, ginConfig.Port),
 		Handler: router,
 	}
 

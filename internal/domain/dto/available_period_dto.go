@@ -1,4 +1,4 @@
-package availability
+package dto
 
 import (
 	"time"
@@ -11,7 +11,7 @@ type AvailablePeriodDTO struct {
 	To   time.Time `json:"to"`
 }
 
-func fromDomain(period domain.Period) AvailablePeriodDTO {
+func FromDomain(period domain.Period) AvailablePeriodDTO {
 	return AvailablePeriodDTO{
 		From: period.Start,
 		To:   period.End,

@@ -1,4 +1,4 @@
-package health
+package http
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func (r readinessStub) Ping(context.Context) error {
 }
 
 func TestHealth(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	setupGin()
 
 	handler := NewHandler(nil)
 
@@ -47,7 +47,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestLiveness(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	setupGin()
 
 	handler := NewHandler(nil)
 
@@ -74,7 +74,7 @@ func TestLiveness(t *testing.T) {
 }
 
 func TestReadinessSuccess(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	setupGin()
 
 	handler := NewHandler(readinessStub{err: nil})
 
@@ -101,7 +101,7 @@ func TestReadinessSuccess(t *testing.T) {
 }
 
 func TestReadinessFailure(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	setupGin()
 
 	handler := NewHandler(readinessStub{err: errors.New("db unavailable")})
 

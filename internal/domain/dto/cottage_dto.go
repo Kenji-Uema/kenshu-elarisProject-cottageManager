@@ -1,4 +1,4 @@
-package cottage
+package dto
 
 import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain"

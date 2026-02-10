@@ -1,4 +1,4 @@
-package booking
+package dto
 
 import (
 	"time"

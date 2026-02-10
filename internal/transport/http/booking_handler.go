@@ -1,4 +1,4 @@
-package booking
+package http
 
 import (
 	"fmt"
@@ -6,26 +6,27 @@ import (
 	"net/http"
 
 	"github.com/Kenji-Uema/cottageManager/internal/app"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-type Handler interface {
+type BookingHandler interface {
 	AddBooking(c *gin.Context)
 	RemoveBooking(c *gin.Context)
 }
 
-type handler struct {
+type bookingHandler struct {
 	service app.BookingService
 }
 
-func NewHandler(service app.BookingService) Handler {
-	return &handler{service: service}
+func NewBookingHandler(service app.BookingService) BookingHandler {
+	return &bookingHandler{service: service}
 }
 
-func (h *handler) AddBooking(c *gin.Context) {
+func (h *bookingHandler) AddBooking(c *gin.Context) {
 	cottageNameURI := c.Param("name")
-	var bookingRequest RequestDto
+	var bookingRequest dto.RequestDto
 
 	if err := c.ShouldBindJSON(&bookingRequest); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -50,10 +51,10 @@ func (h *handler) AddBooking(c *gin.Context) {
 	}
 
 	slog.Info("booking added", "cottage", cottageNameURI, "booking_id", bookingId, "period_start", booking.StayPeriod.Start, "period_end", booking.StayPeriod.End)
-	c.JSON(http.StatusOK, ConfirmationDto{BookingId: bookingId})
+	c.JSON(http.StatusOK, dto.ConfirmationDto{BookingId: bookingId})
 }
 
-func (h *handler) RemoveBooking(c *gin.Context) {
+func (h *bookingHandler) RemoveBooking(c *gin.Context) {
 	cottageName := c.Param("name")
 	bookingIdHex := c.Param("bookingId")
 

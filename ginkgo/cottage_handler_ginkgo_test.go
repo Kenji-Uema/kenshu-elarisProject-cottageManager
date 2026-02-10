@@ -12,11 +12,10 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/app"
 	"github.com/Kenji-Uema/cottageManager/internal/config"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	mdb "github.com/Kenji-Uema/cottageManager/internal/infra/db"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/logging"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/availability"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/booking"
-	"github.com/Kenji-Uema/cottageManager/internal/transport/http/cottage"
+	http2 "github.com/Kenji-Uema/cottageManager/internal/transport/http"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/gin-gonic/gin"
@@ -75,9 +74,9 @@ var _ = BeforeSuite(func() {
 	cottageService := app.NewCottageService(cottageRepo)
 	bookingService := app.NewBookingService(availabilityService, cottageService, bookingRepo)
 
-	availabilityHandler := availability.NewHandler(availabilityService)
-	bookingHandler := booking.NewHandler(bookingService)
-	cottageHandler := cottage.NewHandler(cottageService)
+	availabilityHandler := http2.NewAvailabilityHandler(availabilityService)
+	bookingHandler := http2.NewBookingHandler(bookingService)
+	cottageHandler := http2.NewCottageHandler(cottageService)
 
 	router = gin.New()
 
@@ -152,10 +151,10 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 		}
 	})
 
-	var cottages []cottage.Dto
-	var lilyOfTheValleyCottage cottage.Dto
-	var lilyAvailablePeriods []availability.AvailablePeriodDTO
-	var bookingConfirmation booking.ConfirmationDto
+	var cottages []dto.Dto
+	var lilyOfTheValleyCottage dto.Dto
+	var lilyAvailablePeriods []dto.AvailablePeriodDTO
+	var bookingConfirmation dto.ConfirmationDto
 
 	It("client browsers all cottages", func() {
 		req := httptest.NewRequest(http.MethodGet, "/cottages", nil)
@@ -209,7 +208,7 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 	})
 
 	It("client tries to book Lily of the Valley cottage for next week", func() {
-		bookingRequest, err := json.Marshal(booking.RequestDto{
+		bookingRequest, err := json.Marshal(dto.RequestDto{
 			GuestId:        bson.NewObjectID().Hex(),
 			NumberOfGuests: 2,
 			CheckInDate:    lilyAvailablePeriods[0].From.Format("2006-01-02"),

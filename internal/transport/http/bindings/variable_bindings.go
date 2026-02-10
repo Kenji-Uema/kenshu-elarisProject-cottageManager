@@ -1,4 +1,4 @@
-package common
+package bindings
 
 type CottageNameURI struct {
 	Name string `uri:"name" binding:"required"`
