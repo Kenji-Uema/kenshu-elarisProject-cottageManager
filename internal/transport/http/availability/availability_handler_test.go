@@ -1,6 +1,7 @@
 package availability
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,6 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 )
 
 func setupGin() {
@@ -20,11 +20,9 @@ func setupGin() {
 
 func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 	setupGin()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	t.Run("success returns 200 with periods", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService(ctrl)
+		svc := appmocks.NewMockAvailabilityService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name/available-dates", h.GetAvailablePeriods)
@@ -32,7 +30,9 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 		from := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
 		to := time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC)
 		expected := []domain.Period{{Start: from, End: to}}
-		svc.EXPECT().GetAvailablePeriods(gomock.Any(), "A1", gomock.Any()).Return(expected, nil)
+		svc.GetAvailablePeriodsFunc = func(_ context.Context, _ string, _ domain.Period) ([]domain.Period, error) {
+			return expected, nil
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/cottage/A1/available-dates?from=2025-09-01&to=2025-09-30", nil)
 		w := httptest.NewRecorder()
@@ -51,12 +51,14 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService(ctrl)
+		svc := appmocks.NewMockAvailabilityService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/availability/:name", h.GetAvailablePeriods)
 
-		svc.EXPECT().GetAvailablePeriods(gomock.Any(), "A1", gomock.Any()).Return(nil, assertAnyError())
+		svc.GetAvailablePeriodsFunc = func(_ context.Context, _ string, _ domain.Period) ([]domain.Period, error) {
+			return nil, assertAnyError()
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/availability/A1?from=2025-09-01&to=2025-09-30", nil)
 		w := httptest.NewRecorder()
@@ -68,7 +70,7 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("binding error returns 400 (missing query)", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService(ctrl)
+		svc := appmocks.NewMockAvailabilityService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/availability/:name", h.GetAvailablePeriods)
@@ -86,11 +88,9 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 
 func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 	setupGin()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	t.Run("success returns 200 with available periods per cottage", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService(ctrl)
+		svc := appmocks.NewMockAvailabilityService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/availability/type/:type", h.GetAvailablePeriodsByCottageType)
@@ -98,7 +98,9 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 		from := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
 		to := time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC)
 		expected := []domain.CottageAvailablePeriod{{Name: "A1", Periods: []domain.Period{{Start: from, End: to}}}}
-		svc.EXPECT().GetAvailablePeriodsByCottageType(gomock.Any(), "lux", gomock.Any()).Return(expected, nil)
+		svc.GetAvailablePeriodsByCottageTypeFunc = func(_ context.Context, _ string, _ domain.Period) ([]domain.CottageAvailablePeriod, error) {
+			return expected, nil
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/availability/type/lux?from=2025-09-01&to=2025-09-30", nil)
 		w := httptest.NewRecorder()
@@ -117,7 +119,7 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 	})
 
 	t.Run("binding error returns 400 (from>to)", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService(ctrl)
+		svc := appmocks.NewMockAvailabilityService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/availability/type/:type", h.GetAvailablePeriodsByCottageType)
@@ -133,7 +135,7 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 	})
 }
 
-// helper matcher that returns an error for gomock expectation without caring about message
+// helper that returns a generic error without caring about message
 func assertAnyError() error { return assertError("any error") }
 
 type assertError string

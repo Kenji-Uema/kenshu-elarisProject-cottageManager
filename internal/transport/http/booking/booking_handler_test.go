@@ -2,6 +2,7 @@ package booking
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,10 +10,10 @@ import (
 	"time"
 
 	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 )
 
 func setupGin() {
@@ -21,8 +22,6 @@ func setupGin() {
 
 func TestHandler_AddBooking(t *testing.T) {
 	setupGin()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	validBody := RequestDto{
 		GuestId:        bson.NewObjectID().Hex(),
@@ -32,12 +31,14 @@ func TestHandler_AddBooking(t *testing.T) {
 	}
 
 	t.Run("success returns 200", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
 
-		svc.EXPECT().AddBooking(gomock.Any(), gomock.Any()).Return("id123", nil)
+		svc.AddBookingFunc = func(_ context.Context, _ domain.Booking) (string, error) {
+			return "id123", nil
+		}
 
 		body, _ := json.Marshal(validBody)
 		req := httptest.NewRequest(http.MethodPost, "/booking/A1", bytes.NewReader(body))
@@ -51,7 +52,7 @@ func TestHandler_AddBooking(t *testing.T) {
 	})
 
 	t.Run("invalid JSON returns 400", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
@@ -67,7 +68,7 @@ func TestHandler_AddBooking(t *testing.T) {
 	})
 
 	t.Run("ToDomain error returns 400 (invalid hex id)", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
@@ -86,12 +87,14 @@ func TestHandler_AddBooking(t *testing.T) {
 	})
 
 	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.POST("/booking/:name", h.AddBooking)
 
-		svc.EXPECT().AddBooking(gomock.Any(), gomock.Any()).Return("", assertAnyError())
+		svc.AddBookingFunc = func(_ context.Context, _ domain.Booking) (string, error) {
+			return "", assertAnyError()
+		}
 
 		body, _ := json.Marshal(validBody)
 		req := httptest.NewRequest(http.MethodPost, "/booking/A1", bytes.NewReader(body))
@@ -107,11 +110,9 @@ func TestHandler_AddBooking(t *testing.T) {
 
 func TestHandler_RemoveBooking(t *testing.T) {
 	setupGin()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	t.Run("invalid bookingId returns 400", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
@@ -126,13 +127,15 @@ func TestHandler_RemoveBooking(t *testing.T) {
 	})
 
 	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
 		id := bson.NewObjectID().Hex()
-		svc.EXPECT().RemoveBooking(gomock.Any(), "A1", gomock.Any()).Return(assertAnyError())
+		svc.RemoveBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return assertAnyError()
+		}
 
 		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/"+id, nil)
 		w := httptest.NewRecorder()
@@ -144,13 +147,15 @@ func TestHandler_RemoveBooking(t *testing.T) {
 	})
 
 	t.Run("success returns 200", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService(ctrl)
+		svc := appmocks.NewMockBookingService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
 		id := bson.NewObjectID().Hex()
-		svc.EXPECT().RemoveBooking(gomock.Any(), "A1", gomock.Any()).Return(nil)
+		svc.RemoveBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return nil
+		}
 
 		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/"+id, nil)
 		w := httptest.NewRecorder()

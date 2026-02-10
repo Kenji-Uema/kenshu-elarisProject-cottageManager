@@ -11,19 +11,16 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
 	"go.mongodb.org/mongo-driver/v2/bson"
-
-	"github.com/golang/mock/gomock"
 )
 
 func Test_cottageService_GetAll(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	t.Run("success: returns all cottages", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		want := []domain.Cottage{{Name: "A1"}, {Name: "B1"}}
 
-		repo.EXPECT().GetAll(gomock.Any()).Return(want, nil)
+		repo.GetAllFunc = func(_ context.Context) ([]domain.Cottage, error) {
+			return want, nil
+		}
 
 		svc := NewCottageService(repo)
 		got, err := svc.GetAll(context.Background())
@@ -37,10 +34,12 @@ func Test_cottageService_GetAll(t *testing.T) {
 	})
 
 	t.Run("error: return cottageNotFound error", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		dbError := dbErrors.UnexpectedError{Err: errors.New("db error")}
 
-		repo.EXPECT().GetAll(gomock.Any()).Return(nil, &dbError)
+		repo.GetAllFunc = func(_ context.Context) ([]domain.Cottage, error) {
+			return nil, &dbError
+		}
 
 		svc := NewCottageService(repo)
 		_, err := svc.GetAll(context.Background())
@@ -53,14 +52,13 @@ func Test_cottageService_GetAll(t *testing.T) {
 }
 
 func Test_cottageService_GetByName(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	t.Run("success: returns cottage", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		want := domain.Cottage{Name: "A1"}
 
-		repo.EXPECT().GetByName(gomock.Any(), "A1").Return(want, nil)
+		repo.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return want, nil
+		}
 
 		svc := NewCottageService(repo)
 		got, err := svc.GetByName(context.Background(), "A1")
@@ -74,10 +72,12 @@ func Test_cottageService_GetByName(t *testing.T) {
 	})
 
 	t.Run("error: returns cottageNotFound error", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 
 		dbError := errors.New("db error")
-		repo.EXPECT().GetByName(gomock.Any(), "A1").Return(domain.Cottage{}, dbError)
+		repo.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, dbError
+		}
 
 		svc := NewCottageService(repo)
 		_, err := svc.GetByName(context.Background(), "A1")
@@ -90,14 +90,13 @@ func Test_cottageService_GetByName(t *testing.T) {
 }
 
 func Test_cottageService_AddBooking(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	t.Run("success: should return nil", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		id := bson.NewObjectID()
 
-		repo.EXPECT().AddBooking(gomock.Any(), "A1", id).Return(nil)
+		repo.AddBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return nil
+		}
 
 		svc := NewCottageService(repo)
 		if err := svc.AddBooking(context.Background(), "A1", id); err != nil {
@@ -106,11 +105,13 @@ func Test_cottageService_AddBooking(t *testing.T) {
 	})
 
 	t.Run("error: should Return AddBookingToCottageError", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		id := bson.NewObjectID()
 
 		dbError := dbErrors.UnexpectedError{Err: errors.New("db error")}
-		repo.EXPECT().AddBooking(gomock.Any(), "A1", id).Return(&dbError)
+		repo.AddBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return &dbError
+		}
 
 		svc := NewCottageService(repo)
 		err := svc.AddBooking(context.Background(), "A1", id)
@@ -123,14 +124,13 @@ func Test_cottageService_AddBooking(t *testing.T) {
 }
 
 func Test_cottageService_RemoveBooking(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	t.Run("success: should return nil", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		id := bson.NewObjectID()
 
-		repo.EXPECT().DeleteBooking(gomock.Any(), "A1", id).Return(nil)
+		repo.DeleteBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return nil
+		}
 
 		svc := NewCottageService(repo)
 		if err := svc.RemoveBooking(context.Background(), "A1", id); err != nil {
@@ -139,11 +139,13 @@ func Test_cottageService_RemoveBooking(t *testing.T) {
 	})
 
 	t.Run("error: should return RemoveBookingFromCottage error", func(t *testing.T) {
-		repo := portmocks.NewMockCottageRepo(ctrl)
+		repo := portmocks.NewMockCottageRepo()
 		id := bson.NewObjectID()
 
 		dbError := dbErrors.UnexpectedError{Err: errors.New("db error")}
-		repo.EXPECT().DeleteBooking(gomock.Any(), "A1", id).Return(&dbError)
+		repo.DeleteBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return &dbError
+		}
 
 		svc := NewCottageService(repo)
 		err := svc.RemoveBooking(context.Background(), "A1", id)

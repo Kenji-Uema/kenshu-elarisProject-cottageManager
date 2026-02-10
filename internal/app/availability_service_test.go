@@ -9,31 +9,31 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
 
-	"github.com/golang/mock/gomock"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-var initAvailabilityServiceMocks = func(ctrl *gomock.Controller) (*portmocks.MockCottageRepo, *portmocks.MockBookingRepo) {
-	cr := portmocks.NewMockCottageRepo(ctrl)
-	br := portmocks.NewMockBookingRepo(ctrl)
+var initAvailabilityServiceMocks = func() (*portmocks.MockCottageRepo, *portmocks.MockBookingRepo) {
+	cr := portmocks.NewMockCottageRepo()
+	br := portmocks.NewMockBookingRepo()
 
 	return cr, br
 }
 
 func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	requestPeriod := domain.Period{
 		Start: time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
 		End:   time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC),
 	}
 
 	t.Run("when cottage X has no bookings, then the whole period should be returned", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{}, nil
+		}
 
 		wanted := []domain.Period{
 			{
@@ -52,15 +52,19 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 1 booking covering the whole period, then should return 0 available period", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 8, 5, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 10, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -71,7 +75,7 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 2 bookings covering the whole period, then should return 0 available period", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking1 := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 8, 30, 0, 0, 0, 0, time.UTC),
@@ -82,8 +86,12 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 			End:   time.Date(2025, 10, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking1, booking2}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking1, booking2}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -94,15 +102,19 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 1 booking inside the requested period, then should return 2 available periods", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 9, 5, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 9, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -124,15 +136,19 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 1 booking overlapping the beginning of the period, then should return 1 available period", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 8, 5, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 9, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -150,15 +166,19 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 1 booking overlapping the end of the period, then should return 1 available period", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 9, 20, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -176,15 +196,19 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 1 booking matching the beginning of the period, then should return 1 available period", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 9, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -202,15 +226,19 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("when cottage X has 1 booking matching the end of the period, then should return 1 available period", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		booking := domain.Booking{StayPeriod: domain.Period{
 			Start: time.Date(2025, 9, 20, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "X").Return(domain.Cottage{}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), gomock.Any()).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		s := NewAvailabilityService(cr, br)
 		got, _ := s.GetAvailablePeriods(context.Background(), "X", requestPeriod)
@@ -229,16 +257,13 @@ func Test_availabilityService_GetAvailablePeriods(t *testing.T) {
 }
 
 func Test_availabilityService_GetAvailablePeriodsByCottageType(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	requestPeriod := domain.Period{
 		Start: time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
 		End:   time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC).Add(-time.Nanosecond),
 	}
 
 	t.Run("when Cottage A1 and A2 is available and Cottage A3 is not available, then should return availablePeriods for A1 and A2, but empty slice for A3", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		bookingId := bson.NewObjectIDFromTimestamp(time.Now())
 		cottageA1 := domain.Cottage{Name: "A1"}
@@ -251,9 +276,15 @@ func Test_availabilityService_GetAvailablePeriodsByCottageType(t *testing.T) {
 			End:   time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC).Add(-time.Nanosecond),
 		}}
 
-		cr.EXPECT().GetByType(gomock.Any(), cottageType).Return([]domain.Cottage{cottageA1, cottageA2, cottageA3}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), nil).Return(nil, nil).AnyTimes()
-		br.EXPECT().GetBookings(gomock.Any(), cottageA3.Bookings).Return([]domain.Booking{booking}, nil)
+		cr.GetByTypeFunc = func(_ context.Context, _ string) ([]domain.Cottage, error) {
+			return []domain.Cottage{cottageA1, cottageA2, cottageA3}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, ids []bson.ObjectID) ([]domain.Booking, error) {
+			if len(ids) == 0 {
+				return nil, nil
+			}
+			return []domain.Booking{booking}, nil
+		}
 
 		wanted := []domain.CottageAvailablePeriod{
 			{
@@ -287,12 +318,16 @@ func Test_availabilityService_GetAvailablePeriodsByCottageType(t *testing.T) {
 	})
 
 	t.Run("when cottage of type X is available, but requested type is Y, then should return empty slice", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		cottageA1 := domain.Cottage{Name: "A1"}
 
-		cr.EXPECT().GetByType(gomock.Any(), "typeA").Return([]domain.Cottage{cottageA1}, nil)
-		br.EXPECT().GetBookings(gomock.Any(), nil).Return(nil, nil).AnyTimes()
+		cr.GetByTypeFunc = func(_ context.Context, _ string) ([]domain.Cottage, error) {
+			return []domain.Cottage{cottageA1}, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return nil, nil
+		}
 
 		cottageType := "typeA"
 
@@ -319,16 +354,17 @@ func Test_availabilityService_GetAvailablePeriodsByCottageType(t *testing.T) {
 }
 
 func Test_availabilityService_IsCottageFree(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	t.Run("when cottage has no bookings for the period, then should return true", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		cottageA1 := domain.Cottage{Name: "A1"}
 
-		cr.EXPECT().GetByName(gomock.Any(), "A1").Return(cottageA1, nil)
-		br.EXPECT().GetBookings(gomock.Any(), nil).Return(nil, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return cottageA1, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return nil, nil
+		}
 
 		cottageName := "A1"
 		requestPeriod := domain.Period{
@@ -345,7 +381,7 @@ func Test_availabilityService_IsCottageFree(t *testing.T) {
 	})
 
 	t.Run("when cottage has no overlapping bookings, then should return true", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		cottageA1 := domain.Cottage{Name: "A1"}
 		booking := domain.Booking{StayPeriod: domain.Period{
@@ -353,8 +389,12 @@ func Test_availabilityService_IsCottageFree(t *testing.T) {
 			End:   time.Date(2025, 9, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "A1").Return(cottageA1, nil)
-		br.EXPECT().GetBookings(gomock.Any(), nil).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return cottageA1, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		cottageName := "A1"
 		requestPeriod := domain.Period{
@@ -371,7 +411,7 @@ func Test_availabilityService_IsCottageFree(t *testing.T) {
 	})
 
 	t.Run("when cottage has overlapping bookings, then should return false", func(t *testing.T) {
-		cr, br := initAvailabilityServiceMocks(ctrl)
+		cr, br := initAvailabilityServiceMocks()
 
 		cottageA1 := domain.Cottage{Name: "A1"}
 		booking := domain.Booking{StayPeriod: domain.Period{
@@ -379,8 +419,12 @@ func Test_availabilityService_IsCottageFree(t *testing.T) {
 			End:   time.Date(2025, 10, 10, 0, 0, 0, 0, time.UTC),
 		}}
 
-		cr.EXPECT().GetByName(gomock.Any(), "A1").Return(cottageA1, nil)
-		br.EXPECT().GetBookings(gomock.Any(), nil).Return([]domain.Booking{booking}, nil)
+		cr.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return cottageA1, nil
+		}
+		br.GetBookingsFunc = func(_ context.Context, _ []bson.ObjectID) ([]domain.Booking, error) {
+			return []domain.Booking{booking}, nil
+		}
 
 		cottageName := "A1"
 		requestPeriod := domain.Period{

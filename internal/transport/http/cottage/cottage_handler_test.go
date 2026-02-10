@@ -1,6 +1,7 @@
 package cottage
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,6 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 )
 
 func setupGin() {
@@ -20,17 +20,17 @@ func setupGin() {
 
 func TestHandler_GetAll(t *testing.T) {
 	setupGin()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	t.Run("success returns 200 with cottages dto", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService(ctrl)
+		svc := appmocks.NewMockCottageService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/cottages", h.GetAll)
 
 		cottages := []domain.Cottage{{Name: "A1", View: "lux"}}
-		svc.EXPECT().GetAll(gomock.Any()).Return(cottages, nil)
+		svc.GetAllFunc = func(_ context.Context) ([]domain.Cottage, error) {
+			return cottages, nil
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/cottages", nil)
 		w := httptest.NewRecorder()
@@ -49,12 +49,14 @@ func TestHandler_GetAll(t *testing.T) {
 	})
 
 	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService(ctrl)
+		svc := appmocks.NewMockCottageService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/cottages", h.GetAll)
 
-		svc.EXPECT().GetAll(gomock.Any()).Return(nil, &appErrors.UnexpectedError{})
+		svc.GetAllFunc = func(_ context.Context) ([]domain.Cottage, error) {
+			return nil, &appErrors.UnexpectedError{}
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/cottages", nil)
 		w := httptest.NewRecorder()
@@ -68,16 +70,16 @@ func TestHandler_GetAll(t *testing.T) {
 
 func TestHandler_GetByName(t *testing.T) {
 	setupGin()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	t.Run("success returns 200 with dto", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService(ctrl)
+		svc := appmocks.NewMockCottageService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name", h.GetByName)
 
-		svc.EXPECT().GetByName(gomock.Any(), "A1").Return(domain.Cottage{Name: "A1", View: "lux"}, nil)
+		svc.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{Name: "A1", View: "lux"}, nil
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/cottage/A1", nil)
 		w := httptest.NewRecorder()
@@ -96,12 +98,14 @@ func TestHandler_GetByName(t *testing.T) {
 	})
 
 	t.Run("not found returns 404", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService(ctrl)
+		svc := appmocks.NewMockCottageService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name", h.GetByName)
 
-		svc.EXPECT().GetByName(gomock.Any(), "A2").Return(domain.Cottage{}, &appErrors.CottageNotFound{})
+		svc.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, &appErrors.CottageNotFound{}
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/cottage/A2", nil)
 		w := httptest.NewRecorder()
@@ -113,12 +117,14 @@ func TestHandler_GetByName(t *testing.T) {
 	})
 
 	t.Run("unexpected error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService(ctrl)
+		svc := appmocks.NewMockCottageService()
 		h := NewHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name", h.GetByName)
 
-		svc.EXPECT().GetByName(gomock.Any(), "A3").Return(domain.Cottage{}, &appErrors.UnexpectedError{})
+		svc.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{}, &appErrors.UnexpectedError{}
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/cottage/A3", nil)
 		w := httptest.NewRecorder()
