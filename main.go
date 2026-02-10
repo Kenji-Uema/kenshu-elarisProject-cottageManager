@@ -25,31 +25,29 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
-func main() {
-	ctx := context.Background()
-	ginConfig := config.LoadConfig[config.GinConfig]()
-	mongoConfig := config.LoadConfig[config.MongoDbConfig]()
-	cottageConfig := config.LoadConfig[config.CottageCollectionConfig]()
-	bookingConfig := config.LoadConfig[config.BookingCollectionConfig]()
-	loggingConfig := config.LoadConfig[config.LogConfig]()
-	telemetryConfig := config.LoadConfig[config.TelemetryConfig]()
-
-	loggingShutdown, err := logging.Setup(ctx, loggingConfig, telemetryConfig)
+func exitOnError(errMsg string, err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "logging setup failed: %v\n", err)
-	}
-
-	telemetryShutdown, err := telemetry.Setup(ctx, telemetryConfig)
-	if err != nil {
-		slog.Error("otel init failed", "err", err)
+		slog.Error(errMsg, "error", err)
 		os.Exit(1)
 	}
+}
 
-	mongoDb := mongoDbSetup(mongoConfig)
+func main() {
+	ctx := context.Background()
+	configs, err := config.LoadConfigs()
+	exitOnError("failed to load configs", err)
+
+	loggingShutdown, err := logging.Setup(ctx, configs.LogConfig, configs.TelemetryConfig)
+	exitOnError("failed to setup logging", err)
+
+	telemetryShutdown, err := telemetry.Setup(ctx, configs.TelemetryConfig)
+	exitOnError("failed to setup telemetry", err)
+
+	mongoDb := mongoDbSetup(configs.MongoConfig)
 
 	router := ginSetup()
-	routerSetup(mongoDb, router, cottageConfig, bookingConfig)
-	server := ginSpinUP(ginConfig, router)
+	routerSetup(mongoDb, router, configs.CottageCollectionConfig, configs.BookingCollectionConfig)
+	server := ginSpinUP(configs.AppConfig, router)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -77,12 +75,12 @@ func main() {
 
 	if loggingShutdown != nil {
 		if err := loggingShutdown(shutdownCtx); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to flush logs: %v\n", err)
+			slog.Error("failed to flush logs: %v\n", err)
 		}
 	}
 }
 
-func routerSetup(mongoDb *db.Db, router *gin.Engine, cottageConf *config.CottageCollectionConfig, bookingConf *config.BookingCollectionConfig) {
+func routerSetup(mongoDb *db.Db, router *gin.Engine, cottageConf config.CottageCollectionConfig, bookingConf config.BookingCollectionConfig) {
 	cottageRepo := db.NewCottageRepo(mongoDb.Database, cottageConf)
 	bookingRepo := db.NewBookingRepo(mongoDb.Database, bookingConf)
 
@@ -111,7 +109,7 @@ func routerSetup(mongoDb *db.Db, router *gin.Engine, cottageConf *config.Cottage
 
 	// register a booking for a cottage
 	router.POST("/cottage/:name/booking", bookingHandler.AddBooking)
-	// delete a booking for a given cottage
+	// cancel a booking for a given cottage
 	router.DELETE("/cottage/:name/booking/:bookingId", bookingHandler.RemoveBooking)
 }
 
@@ -130,7 +128,7 @@ func ginSetup() *gin.Engine {
 	return router
 }
 
-func ginSpinUP(ginConfig *config.GinConfig, router *gin.Engine) *http.Server {
+func ginSpinUP(ginConfig config.AppConfig, router *gin.Engine) *http.Server {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("localhost:%v", ginConfig.Port),
 		Handler: router,
@@ -146,13 +144,13 @@ func ginSpinUP(ginConfig *config.GinConfig, router *gin.Engine) *http.Server {
 	return srv
 }
 
-func mongoDbSetup(config *config.MongoDbConfig) *db.Db {
+func mongoDbSetup(config config.MongoConfig) *db.Db {
 	startCtx, startCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer startCancel()
 
-	mongoUri := fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Url, config.Port)
+	mongoUri := fmt.Sprintf("mongodb://%s:%s@%s", config.Username, config.Password, config.Host)
 
-	mongoDb, err := db.NewMongoDb(startCtx, mongoUri, config.Db)
+	mongoDb, err := db.NewMongoDb(startCtx, mongoUri, config.Database)
 	if err != nil {
 		slog.ErrorContext(startCtx, "failed to connect to MongoDB", "err", err)
 		os.Exit(1)

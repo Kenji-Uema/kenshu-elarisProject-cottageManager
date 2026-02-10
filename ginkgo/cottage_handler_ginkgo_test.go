@@ -42,10 +42,10 @@ var (
 var _ = BeforeSuite(func() {
 	gin.SetMode(gin.TestMode)
 	var err error
-	logShutdown, err = logging.Setup(context.Background(), &config.LogConfig{
+	logShutdown, err = logging.Setup(context.Background(), config.LogConfig{
 		Level:  "info",
 		Format: "text",
-	}, nil)
+	}, config.TelemetryConfig{})
 	Expect(err).NotTo(HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -67,8 +67,8 @@ var _ = BeforeSuite(func() {
 
 	db = mongoClient.Database(testDatabaseName)
 
-	cottageRepo := mdb.NewCottageRepo(db, &config.CottageCollectionConfig{Name: "cottage"})
-	bookingRepo := mdb.NewBookingRepo(db, &config.BookingCollectionConfig{Name: "booking"})
+	cottageRepo := mdb.NewCottageRepo(db, config.CottageCollectionConfig{Name: "cottage"})
+	bookingRepo := mdb.NewBookingRepo(db, config.BookingCollectionConfig{Name: "booking"})
 
 	availabilityService := app.NewAvailabilityService(cottageRepo, bookingRepo)
 	cottageService := app.NewCottageService(cottageRepo)

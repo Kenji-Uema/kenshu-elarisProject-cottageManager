@@ -3,26 +3,21 @@ package logging
 import (
 	"context"
 	"cottageManager/internal/config"
-	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 )
 
-func Setup(ctx context.Context, logConfig *config.LogConfig, telemetryConfig *config.TelemetryConfig) (func(context.Context) error, error) {
+func Setup(ctx context.Context, logConfig config.LogConfig, telemetryConfig config.TelemetryConfig) (func(context.Context) error, error) {
 	if ctx == nil {
 		ctx = context.Background()
-	}
-
-	if logConfig == nil {
-		logConfig = &config.LogConfig{}
 	}
 
 	level := parseLevel(logConfig.Level)
 
 	handler, shutdown, err := NewOtelHandler(ctx, telemetryConfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "OTel log exporter disabled, falling back to %s logs: %v\n", fallbackFormat(logConfig.Format), err)
+		slog.Error("failed to initialize OTel log exporter", "error", err)
 		handler = nil
 		shutdown = nil
 	}
@@ -59,11 +54,4 @@ func newConsoleHandler(format string, level slog.Leveler) slog.Handler {
 	default:
 		return slog.NewTextHandler(os.Stdout, opts)
 	}
-}
-
-func fallbackFormat(format string) string {
-	if format == "" {
-		return "text"
-	}
-	return strings.ToLower(strings.TrimSpace(format))
 }

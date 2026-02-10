@@ -1,17 +1,32 @@
 package config
 
 import (
-	"log"
+	"errors"
 
 	"github.com/caarlos0/env/v11"
 )
 
-type MongoDbConfig struct {
-	Url      string `env:"MONGO_URL,required"`
-	Port     string `env:"MONGO_PORT,required"`
-	Db       string `env:"MONGO_DB,required"`
-	User     string `env:"MONGO_USER,required"`
-	Password string `env:"MONGO_PASSWORD,required"`
+type Configs struct {
+	AppConfig
+	MongoConfig
+	CottageCollectionConfig
+	BookingCollectionConfig
+	LogConfig
+	TelemetryConfig
+}
+
+type AppConfig struct {
+	ServiceName string `env:"SERVICE_NAME"`
+	Version     string `env:"VERSION"`
+	Host        string `env:"SERVICE_HOST,required"`
+	Port        int    `env:"SERVICE_PORT,required"`
+}
+
+type MongoConfig struct {
+	Username string `env:"MONGO_INITDB_ROOT_USERNAME,required"`
+	Password string `env:"MONGO_INITDB_ROOT_PASSWORD,required"`
+	Host     string `env:"MONGO_HOST,required"`
+	Database string `env:"MONGO_DATABASE,required"`
 }
 
 type CottageCollectionConfig struct {
@@ -22,30 +37,49 @@ type BookingCollectionConfig struct {
 	Name string `env:"BOOKING_COLLECTION" envDefault:"Booking"`
 }
 
-type GinConfig struct {
-	Port string `env:"GIN_PORT" envDefault:"8080"`
-}
-
 type LogConfig struct {
 	Level  string `env:"LOG_LEVEL" envDefault:"info"`
 	Format string `env:"LOG_FORMAT" envDefault:"json"`
 }
 
 type TelemetryConfig struct {
-	ExporterEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
-	ServiceName      string `env:"OTEL_SERVICE_NAME" envDefault:"cottage-manager"`
-	DeploymentEnv    string `env:"DEPLOYMENT_ENV" envDefault:"development"`
-	ServiceVersion   string `env:"SERVICE_VERSION" envDefault:"0.0.1"`
-	UseInsecure      bool   `env:"OTEL_EXPORTER_OTLP_INSECURE" envDefault:"true"`
+	OTLPEndpoint   string `env:"OTEL_EXPORTER_OTLP_ENDPOINT,required"`
+	OTLPGrpcPort   int    `env:"OTEL_EXPORTER_OTLP_GRPC_PORT,required"`
+	OTLPHealthPort int    `env:"OTEL_EXPORTER_OTLP_HEALTH_PORT,required"`
+	OTLPInsecure   bool   `env:"OTEL_EXPORTER_OTLP_INSECURE,required"`
 }
 
-func LoadConfig[C GinConfig | MongoDbConfig |
-	CottageCollectionConfig | BookingCollectionConfig |
-	LogConfig | TelemetryConfig]() *C {
+func LoadConfigs() (Configs, error) {
+	var err error
+
+	appConfig, loadErr := loadConfig[AppConfig]()
+	err = errors.Join(err, loadErr)
+	mongoConfig, loadErr := loadConfig[MongoConfig]()
+	err = errors.Join(err, loadErr)
+	cottageCollectionConfig, loadErr := loadConfig[CottageCollectionConfig]()
+	err = errors.Join(err, loadErr)
+	bookingCollectionConfig, loadErr := loadConfig[BookingCollectionConfig]()
+	err = errors.Join(err, loadErr)
+	logCofig, loadErr := loadConfig[LogConfig]()
+	err = errors.Join(err, loadErr)
+	telemetryConfig, loadErr := loadConfig[TelemetryConfig]()
+	err = errors.Join(err, loadErr)
+
+	return Configs{
+		appConfig,
+		mongoConfig,
+		cottageCollectionConfig,
+		bookingCollectionConfig,
+		logCofig,
+		telemetryConfig,
+	}, err
+}
+
+func loadConfig[C AppConfig | MongoConfig | CottageCollectionConfig | BookingCollectionConfig | LogConfig | TelemetryConfig]() (C, error) {
 	var c C
 	if err := env.Parse(&c); err != nil {
-		log.Fatal(err)
+		return c, err
 	}
 
-	return &c
+	return c, nil
 }

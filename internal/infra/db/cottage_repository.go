@@ -20,7 +20,7 @@ type cottageRepo struct {
 	collection *mongo.Collection
 }
 
-func NewCottageRepo(db *mongo.Database, config *config.CottageCollectionConfig) port.CottageRepo {
+func NewCottageRepo(db *mongo.Database, config config.CottageCollectionConfig) port.CottageRepo {
 	return &cottageRepo{collection: db.Collection(config.Name)}
 }
 

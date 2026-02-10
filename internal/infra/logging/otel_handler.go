@@ -12,11 +12,11 @@ import (
 	sdlog "go.opentelemetry.io/otel/sdk/log"
 )
 
-func NewOtelHandler(ctx context.Context, cfg *config.TelemetryConfig) (slog.Handler, func(context.Context) error, error) {
+func NewOtelHandler(ctx context.Context, cfg config.TelemetryConfig) (slog.Handler, func(context.Context) error, error) {
 	opts := make([]otlploggrpc.Option, 0, 3)
 
-	opts = append(opts, otlploggrpc.WithEndpoint(cfg.ExporterEndpoint))
-	if cfg.UseInsecure {
+	opts = append(opts, otlploggrpc.WithEndpoint(cfg.OTLPEndpoint))
+	if cfg.OTLPInsecure {
 		opts = append(opts, otlploggrpc.WithInsecure())
 	}
 
@@ -29,7 +29,9 @@ func NewOtelHandler(ctx context.Context, cfg *config.TelemetryConfig) (slog.Hand
 	logProvider := sdlog.NewLoggerProvider(sdlog.WithProcessor(processor))
 	global.SetLoggerProvider(logProvider)
 
-	otelHandler := otelslog.NewHandler(cfg.ServiceName,
+	// Todo
+	// add app configs to set service name
+	otelHandler := otelslog.NewHandler("",
 		otelslog.WithLoggerProvider(logProvider),
 		otelslog.WithSource(true),
 	)
