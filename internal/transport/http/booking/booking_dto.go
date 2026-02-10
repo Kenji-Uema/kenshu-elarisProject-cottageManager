@@ -4,8 +4,7 @@ import (
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type RequestDto struct {
@@ -20,7 +19,7 @@ type ConfirmationDto struct {
 }
 
 func (bookingDto *RequestDto) ToDomain(cottageName string) (domain.Booking, error) {
-	mainGuestId, err := primitive.ObjectIDFromHex(bookingDto.GuestId)
+	mainGuestId, err := bson.ObjectIDFromHex(bookingDto.GuestId)
 	if err != nil {
 		return domain.Booking{}, err
 	}

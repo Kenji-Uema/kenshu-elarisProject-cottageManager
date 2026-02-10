@@ -11,10 +11,9 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type cottageRepo struct {
@@ -96,9 +95,9 @@ func (r *cottageRepo) GetByName(ctx context.Context, name string) (domain.Cottag
 	return cottage, nil
 }
 
-func (r *cottageRepo) GetBookingsId(ctx context.Context, name string) ([]primitive.ObjectID, error) {
+func (r *cottageRepo) GetBookingsId(ctx context.Context, name string) ([]bson.ObjectID, error) {
 	var result struct {
-		Bookings []primitive.ObjectID `bson:"bookings"`
+		Bookings []bson.ObjectID `bson:"bookings"`
 	}
 
 	err := r.collection.FindOne(
@@ -117,7 +116,7 @@ func (r *cottageRepo) GetBookingsId(ctx context.Context, name string) ([]primiti
 	return result.Bookings, nil
 }
 
-func (r *cottageRepo) AddBooking(ctx context.Context, name string, bookingId primitive.ObjectID) error {
+func (r *cottageRepo) AddBooking(ctx context.Context, name string, bookingId bson.ObjectID) error {
 	filter := bson.M{"name": name}
 	update := bson.M{"$push": bson.M{"bookings": bookingId}}
 
@@ -130,7 +129,7 @@ func (r *cottageRepo) AddBooking(ctx context.Context, name string, bookingId pri
 	return nil
 }
 
-func (r *cottageRepo) DeleteBooking(ctx context.Context, name string, bookingId primitive.ObjectID) error {
+func (r *cottageRepo) DeleteBooking(ctx context.Context, name string, bookingId bson.ObjectID) error {
 	filter := bson.M{"name": name}
 	update := bson.M{"$pull": bson.M{"bookings": bookingId}}
 

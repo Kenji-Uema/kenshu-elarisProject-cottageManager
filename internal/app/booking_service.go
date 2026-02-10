@@ -2,17 +2,18 @@ package app
 
 import (
 	"context"
+	"log/slog"
+
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
-	"log/slog"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type BookingService interface {
 	AddBooking(ctx context.Context, booking domain.Booking) (string, error)
-	RemoveBooking(ctx context.Context, cottageName string, bookingId primitive.ObjectID) error
+	RemoveBooking(ctx context.Context, cottageName string, bookingId bson.ObjectID) error
 }
 
 type bookingService struct {
@@ -59,7 +60,7 @@ func (s *bookingService) AddBooking(ctx context.Context, booking domain.Booking)
 	return bookingId.Hex(), nil
 }
 
-func (s *bookingService) RemoveBooking(ctx context.Context, cottageName string, bookingId primitive.ObjectID) error {
+func (s *bookingService) RemoveBooking(ctx context.Context, cottageName string, bookingId bson.ObjectID) error {
 	slog.Debug("removing booking", "cottage", cottageName, "booking_id", bookingId.Hex())
 
 	_, err := s.bookingRepo.DeleteBooking(ctx, bookingId)

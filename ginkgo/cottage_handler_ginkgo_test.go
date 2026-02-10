@@ -17,15 +17,15 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/transport/http/availability"
 	"github.com/Kenji-Uema/cottageManager/internal/transport/http/booking"
 	"github.com/Kenji-Uema/cottageManager/internal/transport/http/cottage"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mongodb"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
@@ -63,7 +63,7 @@ var _ = BeforeSuite(func() {
 	uri, err := mongoContainer.ConnectionString(ctx)
 	Expect(err).NotTo(HaveOccurred())
 
-	mongoClient, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	mongoClient, err = mongo.Connect(options.Client().ApplyURI(uri))
 	Expect(err).NotTo(HaveOccurred())
 
 	db = mongoClient.Database(testDatabaseName)
@@ -210,7 +210,7 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 
 	It("client tries to book Lily of the Valley cottage for next week", func() {
 		bookingRequest, err := json.Marshal(booking.RequestDto{
-			GuestId:        primitive.NewObjectID().Hex(),
+			GuestId:        bson.NewObjectID().Hex(),
 			NumberOfGuests: 2,
 			CheckInDate:    lilyAvailablePeriods[0].From.Format("2006-01-02"),
 			CheckOutDate:   lilyAvailablePeriods[0].To.Format("2006-01-02"),

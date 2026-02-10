@@ -3,7 +3,7 @@ package dbErrors
 import (
 	"fmt"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type UnexpectedError struct {
@@ -23,7 +23,7 @@ func (e *ValidationError) Error() string {
 }
 
 type MissingBookingsError struct {
-	Missing []primitive.ObjectID
+	Missing []bson.ObjectID
 }
 
 func (e *MissingBookingsError) Error() string {

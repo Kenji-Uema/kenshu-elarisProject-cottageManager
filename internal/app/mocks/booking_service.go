@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	primitive "go.mongodb.org/mongo-driver/bson/primitive"
+	primitive "go.mongodb.org/mongo-driver/v2/bson/primitive"
 )
 
 // MockBookingService is a mock of BookingService interface.

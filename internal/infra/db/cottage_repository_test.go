@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 func Test_cottageRepo_GetAll(t *testing.T) {
@@ -112,7 +112,7 @@ func Test_cottageRepo_AddBooking(t *testing.T) {
 
 		r := &cottageRepo{collection: ct}
 
-		newB := primitive.NewObjectID()
+		newB := bson.NewObjectID()
 		if err := r.AddBooking(ctx, "Daisy", newB); err != nil {
 			t.Fatalf("AddBooking() unexpected error: %v", err)
 		}
@@ -136,7 +136,7 @@ func Test_cottageRepo_DeleteBooking(t *testing.T) {
 
 		r := &cottageRepo{collection: ct}
 
-		newB := primitive.NewObjectID()
+		newB := bson.NewObjectID()
 		if err := r.DeleteBooking(ctx, "Daisy", newB); err != nil {
 			t.Fatalf("AddBooking() unexpected error: %v", err)
 		}

@@ -2,14 +2,15 @@ package app
 
 import (
 	"context"
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
-	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
+
 	"github.com/golang/mock/gomock"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 var initAvailabilityServiceMocks = func(ctrl *gomock.Controller) (*portmocks.MockCottageRepo, *portmocks.MockBookingRepo) {
@@ -239,10 +240,10 @@ func Test_availabilityService_GetAvailablePeriodsByCottageType(t *testing.T) {
 	t.Run("when Cottage A1 and A2 is available and Cottage A3 is not available, then should return availablePeriods for A1 and A2, but empty slice for A3", func(t *testing.T) {
 		cr, br := initAvailabilityServiceMocks(ctrl)
 
-		bookingId := primitive.NewObjectIDFromTimestamp(time.Now())
+		bookingId := bson.NewObjectIDFromTimestamp(time.Now())
 		cottageA1 := domain.Cottage{Name: "A1"}
 		cottageA2 := domain.Cottage{Name: "A2"}
-		cottageA3 := domain.Cottage{Name: "A3", Bookings: []primitive.ObjectID{bookingId}}
+		cottageA3 := domain.Cottage{Name: "A3", Bookings: []bson.ObjectID{bookingId}}
 		cottageType := "A1"
 
 		booking := domain.Booking{StayPeriod: domain.Period{

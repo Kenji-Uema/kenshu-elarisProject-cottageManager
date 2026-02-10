@@ -8,10 +8,8 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type bookingRepo struct {
@@ -22,7 +20,7 @@ func NewBookingRepo(db *mongo.Database, config config.BookingCollectionConfig) p
 	return &bookingRepo{collection: db.Collection(config.Name)}
 }
 
-func (r *bookingRepo) GetBookings(ctx context.Context, ids []primitive.ObjectID) ([]domain.Booking, error) {
+func (r *bookingRepo) GetBookings(ctx context.Context, ids []bson.ObjectID) ([]domain.Booking, error) {
 	if len(ids) == 0 {
 		return []domain.Booking{}, nil
 	}
@@ -48,12 +46,12 @@ func (r *bookingRepo) GetBookings(ctx context.Context, ids []primitive.ObjectID)
 	// Check if all requested IDs were returned
 	if len(bookings) != len(ids) {
 		// optional: figure out which IDs are missing
-		found := make(map[primitive.ObjectID]struct{}, len(bookings))
+		found := make(map[bson.ObjectID]struct{}, len(bookings))
 		for _, b := range bookings {
 			found[b.Id] = struct{}{}
 		}
 
-		var missing []primitive.ObjectID
+		var missing []bson.ObjectID
 		for _, id := range ids {
 			if _, ok := found[id]; !ok {
 				missing = append(missing, id)
@@ -67,18 +65,18 @@ func (r *bookingRepo) GetBookings(ctx context.Context, ids []primitive.ObjectID)
 	return bookings, nil
 }
 
-func (r *bookingRepo) AddBooking(ctx context.Context, booking domain.Booking) (primitive.ObjectID, error) {
+func (r *bookingRepo) AddBooking(ctx context.Context, booking domain.Booking) (bson.ObjectID, error) {
 	result, err := r.collection.InsertOne(ctx, booking)
 
 	if err != nil {
 		slog.Error("failed to insert booking", "error", err)
-		return primitive.NilObjectID, &dbErrors.UnexpectedError{Err: err}
+		return bson.NilObjectID, &dbErrors.UnexpectedError{Err: err}
 	}
 
-	return result.InsertedID.(primitive.ObjectID), nil
+	return result.InsertedID.(bson.ObjectID), nil
 }
 
-func (r *bookingRepo) DeleteBooking(ctx context.Context, id primitive.ObjectID) (bool, error) {
+func (r *bookingRepo) DeleteBooking(ctx context.Context, id bson.ObjectID) (bool, error) {
 	deleted, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
 		slog.Error("failed to delete booking", "error", err, "booking_id", id.Hex())

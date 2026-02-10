@@ -12,8 +12,8 @@ import (
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mongodb"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var (
@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to get connection string: %v", err)
 	}
 
-	mongoClient, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	mongoClient, err = mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
 		log.Fatalf("failed to connect mongo client: %v", err)
 	}

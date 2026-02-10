@@ -3,7 +3,7 @@ package cottage
 import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type Dto struct {
@@ -44,7 +44,7 @@ func fromCottageDetailsDomainToDto(cottageDetails domain.CottageDetails) Details
 	}
 }
 
-func bookingsToHex(ids []primitive.ObjectID) []string {
+func bookingsToHex(ids []bson.ObjectID) []string {
 	result := make([]string, len(ids))
 
 	for i, id := range ids {

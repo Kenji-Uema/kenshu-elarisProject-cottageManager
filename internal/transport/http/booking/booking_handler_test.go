@@ -9,10 +9,10 @@ import (
 	"time"
 
 	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func setupGin() {
@@ -25,7 +25,7 @@ func TestHandler_AddBooking(t *testing.T) {
 	defer ctrl.Finish()
 
 	validBody := RequestDto{
-		GuestId:        primitive.NewObjectID().Hex(),
+		GuestId:        bson.NewObjectID().Hex(),
 		NumberOfGuests: 2,
 		CheckInDate:    time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
 		CheckOutDate:   time.Date(2025, 9, 10, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
@@ -131,7 +131,7 @@ func TestHandler_RemoveBooking(t *testing.T) {
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
-		id := primitive.NewObjectID().Hex()
+		id := bson.NewObjectID().Hex()
 		svc.EXPECT().RemoveBooking(gomock.Any(), "A1", gomock.Any()).Return(assertAnyError())
 
 		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/"+id, nil)
@@ -149,7 +149,7 @@ func TestHandler_RemoveBooking(t *testing.T) {
 		r := gin.New()
 		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
 
-		id := primitive.NewObjectID().Hex()
+		id := bson.NewObjectID().Hex()
 		svc.EXPECT().RemoveBooking(gomock.Any(), "A1", gomock.Any()).Return(nil)
 
 		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/"+id, nil)

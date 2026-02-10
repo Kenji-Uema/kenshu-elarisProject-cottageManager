@@ -6,9 +6,8 @@ import (
 	"net/http"
 
 	"github.com/Kenji-Uema/cottageManager/internal/app"
-
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type Handler interface {
@@ -58,7 +57,7 @@ func (h *handler) RemoveBooking(c *gin.Context) {
 	cottageName := c.Param("name")
 	bookingIdHex := c.Param("bookingId")
 
-	bookingId, err := primitive.ObjectIDFromHex(bookingIdHex)
+	bookingId, err := bson.ObjectIDFromHex(bookingIdHex)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid hex: %v", err)})
 		slog.Warn("invalid booking id provided", "error", err, "cottage", cottageName, "booking_id", bookingIdHex)

@@ -3,15 +3,16 @@ package app
 import (
 	"context"
 	"errors"
+	"reflect"
+	"testing"
+
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
-	"reflect"
-	"testing"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/golang/mock/gomock"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func Test_cottageService_GetAll(t *testing.T) {
@@ -94,7 +95,7 @@ func Test_cottageService_AddBooking(t *testing.T) {
 
 	t.Run("success: should return nil", func(t *testing.T) {
 		repo := portmocks.NewMockCottageRepo(ctrl)
-		id := primitive.NewObjectID()
+		id := bson.NewObjectID()
 
 		repo.EXPECT().AddBooking(gomock.Any(), "A1", id).Return(nil)
 
@@ -106,7 +107,7 @@ func Test_cottageService_AddBooking(t *testing.T) {
 
 	t.Run("error: should Return AddBookingToCottageError", func(t *testing.T) {
 		repo := portmocks.NewMockCottageRepo(ctrl)
-		id := primitive.NewObjectID()
+		id := bson.NewObjectID()
 
 		dbError := dbErrors.UnexpectedError{Err: errors.New("db error")}
 		repo.EXPECT().AddBooking(gomock.Any(), "A1", id).Return(&dbError)
@@ -127,7 +128,7 @@ func Test_cottageService_RemoveBooking(t *testing.T) {
 
 	t.Run("success: should return nil", func(t *testing.T) {
 		repo := portmocks.NewMockCottageRepo(ctrl)
-		id := primitive.NewObjectID()
+		id := bson.NewObjectID()
 
 		repo.EXPECT().DeleteBooking(gomock.Any(), "A1", id).Return(nil)
 
@@ -139,7 +140,7 @@ func Test_cottageService_RemoveBooking(t *testing.T) {
 
 	t.Run("error: should return RemoveBookingFromCottage error", func(t *testing.T) {
 		repo := portmocks.NewMockCottageRepo(ctrl)
-		id := primitive.NewObjectID()
+		id := bson.NewObjectID()
 
 		dbError := dbErrors.UnexpectedError{Err: errors.New("db error")}
 		repo.EXPECT().DeleteBooking(gomock.Any(), "A1", id).Return(&dbError)

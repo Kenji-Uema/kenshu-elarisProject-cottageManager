@@ -4,16 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/Kenji-Uema/cottageManager/internal/app/mocks"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	portmocks "github.com/Kenji-Uema/cottageManager/internal/port/mocks"
-	"testing"
-	"time"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/golang/mock/gomock"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var initBookingServiceMocks = func(ctrl *gomock.Controller) (*mocks.MockAvailabilityService, *mocks.MockCottageService, *portmocks.MockBookingRepo) {
@@ -68,7 +69,7 @@ func Test_bookingService_AddBooking(t *testing.T) {
 		am.EXPECT().IsCottageAvailable(gomock.Any(), booking.CottageName, booking.StayPeriod).Return(true, nil)
 
 		expErr := dbErrors.UnexpectedError{Err: errors.New("db error")}
-		br.EXPECT().AddBooking(gomock.Any(), booking).Return(primitive.NilObjectID, &expErr)
+		br.EXPECT().AddBooking(gomock.Any(), booking).Return(bson.NilObjectID, &expErr)
 
 		svc := NewBookingService(am, nil, br)
 		_, err := svc.AddBooking(context.Background(), booking)
@@ -85,7 +86,7 @@ func Test_bookingService_AddBooking(t *testing.T) {
 
 		am.EXPECT().IsCottageAvailable(gomock.Any(), booking.CottageName, booking.StayPeriod).Return(true, nil)
 
-		id := primitive.NewObjectID()
+		id := bson.NewObjectID()
 		br.EXPECT().AddBooking(gomock.Any(), booking).Return(id, nil)
 
 		expErr := dbErrors.UnexpectedError{Err: errors.New("db error")}
@@ -105,7 +106,7 @@ func Test_bookingService_AddBooking(t *testing.T) {
 
 		am.EXPECT().IsCottageAvailable(gomock.Any(), booking.CottageName, booking.StayPeriod).Return(true, nil)
 
-		id := primitive.NewObjectIDFromTimestamp(time.Now())
+		id := bson.NewObjectIDFromTimestamp(time.Now())
 		br.EXPECT().AddBooking(gomock.Any(), booking).Return(id, nil)
 
 		cm.EXPECT().AddBooking(gomock.Any(), booking.CottageName, id).Return(nil)
@@ -134,7 +135,7 @@ func Test_bookingService_RemoveBooking(t *testing.T) {
 
 		svc := NewBookingService(nil, nil, br)
 
-		err := svc.RemoveBooking(context.Background(), "A1", primitive.NewObjectIDFromTimestamp(time.Now()))
+		err := svc.RemoveBooking(context.Background(), "A1", bson.NewObjectIDFromTimestamp(time.Now()))
 		if !errors.Is(err, &expErr) {
 			t.Fatalf("expected %v, got %v", expErr, err)
 		}
@@ -150,7 +151,7 @@ func Test_bookingService_RemoveBooking(t *testing.T) {
 
 		svc := NewBookingService(nil, cm, br)
 
-		err := svc.RemoveBooking(context.Background(), "A1", primitive.NewObjectIDFromTimestamp(time.Now()))
+		err := svc.RemoveBooking(context.Background(), "A1", bson.NewObjectIDFromTimestamp(time.Now()))
 		if !errors.Is(err, &expErr) {
 			t.Fatalf("expected %v, got %v", expErr, err)
 		}
@@ -163,7 +164,7 @@ func Test_bookingService_RemoveBooking(t *testing.T) {
 		cm.EXPECT().RemoveBooking(gomock.Any(), "A1", gomock.Any()).Return(nil)
 
 		svc := NewBookingService(nil, cm, br)
-		if err := svc.RemoveBooking(context.Background(), "A1", primitive.NewObjectIDFromTimestamp(time.Now())); err != nil {
+		if err := svc.RemoveBooking(context.Background(), "A1", bson.NewObjectIDFromTimestamp(time.Now())); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
