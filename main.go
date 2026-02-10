@@ -90,8 +90,8 @@ func routerSetup(mongoDb *db.Db, router *gin.Engine, cottageConf config.CottageC
 	healthHandler := httphandler.NewHandler(mongoDb)
 
 	// service health check endpoints
-	router.GET("/health", healthHandler.Health)
-	router.GET("/ready", healthHandler.Readiness)
+	router.GET("/healthz", healthHandler.Health)
+	router.GET("/readyz", healthHandler.Readiness)
 
 	// return the list with details of all cottages
 	router.GET("/cottages", cottageHandler.GetAll)
