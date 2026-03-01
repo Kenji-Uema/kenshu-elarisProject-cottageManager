@@ -7,138 +7,167 @@ import (
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
-	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
-	"github.com/Kenji-Uema/cottageManager/internal/port"
 )
 
 type AvailabilityService interface {
-	GetAvailablePeriods(ctx context.Context, name string, period domain.Period) ([]domain.Period, error)
+	GetAvailablePeriods(ctx context.Context, name string, period domain.Period) (domain.CottageAvailablePeriod, error)
 	GetAvailablePeriodsByCottageType(ctx context.Context, cottageType string, period domain.Period) ([]domain.CottageAvailablePeriod, error)
 	IsCottageAvailable(ctx context.Context, cottageName string, period domain.Period) (bool, error)
 }
 
 type availabilityService struct {
-	cottageRepo port.CottageRepo
-	bookingRepo port.BookingRepo
+	cottageService CottageService
+	bookingService BookingService
 }
 
-func NewAvailabilityService(cr port.CottageRepo, br port.BookingRepo) AvailabilityService {
-	return &availabilityService{cottageRepo: cr, bookingRepo: br}
+func NewAvailabilityService(cs CottageService, bs BookingService) AvailabilityService {
+	return &availabilityService{cottageService: cs, bookingService: bs}
 }
 
-func (s *availabilityService) GetAvailablePeriods(ctx context.Context, name string, period domain.Period) ([]domain.Period, error) {
-	slog.Debug("calculating availability for cottage", "cottage", name, "period_start", period.Start, "period_end", period.End)
-	cottage, err := s.cottageRepo.GetByName(ctx, name)
-	if err != nil {
-		slog.Error("failed to load cottage for availability", "error", err, "cottage", name)
-		return nil, err
-	}
+func (s *availabilityService) GetAvailablePeriods(ctx context.Context, name string, period domain.Period) (domain.CottageAvailablePeriod, error) {
+	slog.DebugContext(ctx, "calculating availability for cottage", "cottage", name, "check_in", period.CheckIn, "check_out", period.CheckOut)
 
-	bookings, err := s.bookingRepo.GetBookings(ctx, cottage.Bookings)
+	cottage, err := s.cottageService.GetByName(ctx, name)
 	if err != nil {
-		slog.Error("failed to load bookings for availability", "error", err, "cottage", name)
-		return nil, err
+		slog.DebugContext(ctx, "failed to load cottage for availability", "cottage", name, "error", err)
+		return domain.CottageAvailablePeriod{}, err
 	}
+	slog.DebugContext(ctx, "loaded cottage for availability", "cottage", cottage.Name, "bookings_count", len(cottage.Bookings))
 
-	return cottageVacancies(bookings, period), nil
+	bookings, err := s.bookingService.GetBookings(ctx, cottage.Bookings)
+	if err != nil {
+		slog.DebugContext(ctx, "failed to load bookings for availability", "cottage", name, "error", err)
+		return domain.CottageAvailablePeriod{}, err
+	}
+	slog.DebugContext(ctx, "loaded bookings for availability", "cottage", name, "bookings_count", len(bookings))
+
+	periods := cottageVacancies(ctx, bookings, period)
+	slog.DebugContext(ctx, "calculated availability for cottage", "cottage", name, "available_periods_count", len(periods))
+
+	return domain.CottageAvailablePeriod{Name: cottage.Name, Periods: periods}, nil
 }
 
 func (s *availabilityService) GetAvailablePeriodsByCottageType(ctx context.Context, cottageType string, period domain.Period) ([]domain.CottageAvailablePeriod, error) {
-	slog.Debug("calculating availability for cottage type", "cottage_type", cottageType, "period_start", period.Start, "period_end", period.End)
-	cottages, err := s.cottageRepo.GetByType(ctx, cottageType)
+	slog.DebugContext(ctx, "calculating availability for cottage type", "cottage_type", cottageType, "check_in", period.CheckIn, "check_out", period.CheckOut)
 
+	cottages, err := s.cottageService.GetByView(ctx, cottageType)
 	if err != nil {
-		slog.Error("failed to load cottages by type", "error", err, "cottage_type", cottageType)
+		slog.DebugContext(ctx, "failed to load cottages by type", "cottage_type", cottageType, "error", err)
 		return nil, err
 	}
+	slog.DebugContext(ctx, "loaded cottages by type", "cottage_type", cottageType, "cottages_count", len(cottages))
 
-	var cottageAvailablePeriods []domain.CottageAvailablePeriod
-	for _, cottage := range cottages {
-		bookings, err := s.bookingRepo.GetBookings(ctx, cottage.Bookings)
+	cottageAvailablePeriods := make([]domain.CottageAvailablePeriod, len(cottages))
+	for i, cottage := range cottages {
+		slog.DebugContext(ctx, "calculating availability for cottage in type query", "index", i, "cottage", cottage.Name)
+		availablePeriods, err := s.GetAvailablePeriods(ctx, cottage.Name, period)
 		if err != nil {
-			slog.Error("failed to load bookings for cottage", "error", err, "cottage", cottage.Name)
+			slog.DebugContext(ctx, "failed to calculate availability for cottage in type query", "index", i, "cottage", cottage.Name, "error", err)
 			return nil, err
 		}
 
-		cottageAvailablePeriods = append(cottageAvailablePeriods, domain.CottageAvailablePeriod{
-			Name:    cottage.Name,
-			Periods: cottageVacancies(bookings, period),
-		})
+		cottageAvailablePeriods[i] = availablePeriods
+		slog.DebugContext(ctx, "calculated availability for cottage in type query", "index", i, "cottage", cottage.Name, "available_periods_count", len(availablePeriods.Periods))
 	}
 
+	slog.DebugContext(ctx, "calculated availability for cottage type", "cottage_type", cottageType, "cottages_count", len(cottageAvailablePeriods))
 	return cottageAvailablePeriods, nil
 }
 
 func (s *availabilityService) IsCottageAvailable(ctx context.Context, cottageName string, period domain.Period) (bool, error) {
-	slog.Debug("checking cottage availability", "cottage", cottageName, "period_start", period.Start, "period_end", period.End)
-	cottage, err := s.cottageRepo.GetByName(ctx, cottageName)
+	slog.DebugContext(ctx, "checking cottage availability", "cottage", cottageName, "check_in", period.CheckIn, "check_out", period.CheckOut)
 
+	cottage, err := s.cottageService.GetByName(ctx, cottageName)
 	if err != nil {
-		slog.Error("failed to load cottage while checking availability", "error", err, "cottage", cottageName)
+		slog.DebugContext(ctx, "failed to load cottage while checking availability", "cottage", cottageName, "error", err)
 		return false, err
 	}
+	slog.DebugContext(ctx, "loaded cottage while checking availability", "cottage", cottageName, "bookings_count", len(cottage.Bookings))
 
-	bookings, err := s.bookingRepo.GetBookings(ctx, cottage.Bookings)
-
+	bookings, err := s.bookingService.GetBookings(ctx, cottage.Bookings)
 	if err != nil {
-		slog.Error("failed to load bookings while checking availability", "error", err, "cottage", cottageName)
-		return false, &appErrors.CottageNotAvailableUnexpectedError{Err: err}
+		slog.DebugContext(ctx, "failed to load bookings while checking availability", "cottage", cottageName, "error", err)
+		return false, err
 	}
+	slog.DebugContext(ctx, "loaded bookings while checking availability", "cottage", cottageName, "bookings_count", len(bookings))
 
 	sort.Slice(bookings, func(i, j int) bool {
-		return bookings[i].StayPeriod.Start.Before(bookings[j].StayPeriod.Start)
+		return bookings[i].StayPeriod.CheckIn.Before(bookings[j].StayPeriod.CheckIn)
 	})
 
 	for _, b := range bookings {
-		if !b.StayPeriod.Start.Before(period.End) {
+		if !b.StayPeriod.CheckIn.Before(period.CheckOut) {
+			slog.DebugContext(ctx, "no overlap possible anymore; booking starts after requested period", "cottage", cottageName, "booking_check_in", b.StayPeriod.CheckIn, "check_out", period.CheckOut)
 			break
 		}
-		if period.Start.Before(b.StayPeriod.End) && period.End.After(b.StayPeriod.Start) {
+		if period.CheckIn.Before(b.StayPeriod.CheckOut) && period.CheckOut.After(b.StayPeriod.CheckIn) {
+			slog.DebugContext(ctx, "cottage is not available due to overlap", "cottage", cottageName, "booking_check_in", b.StayPeriod.CheckIn, "booking_check_out", b.StayPeriod.CheckOut, "check_in", period.CheckIn, "check_out", period.CheckOut)
 			return false, nil
 		}
 	}
+
+	slog.DebugContext(ctx, "cottage is available for requested period", "cottage", cottageName, "check_in", period.CheckIn, "check_out", period.CheckOut)
 	return true, nil
 }
 
-func cottageVacancies(bookings []domain.Booking, period domain.Period) []domain.Period {
+func cottageVacancies(ctx context.Context, bookings []domain.Booking, period domain.Period) []domain.Period {
+	slog.DebugContext(ctx, "starting cottage vacancies calculation",
+		"bookings_count", len(bookings), "check_in", period.CheckIn, "check_out", period.CheckOut)
+
 	period.Normalize()
 	for i := range bookings {
 		bookings[i].StayPeriod.Normalize()
 	}
-
 	sort.Slice(bookings, func(i, j int) bool {
-		return bookings[i].StayPeriod.Start.Before(bookings[j].StayPeriod.Start)
+		return bookings[i].StayPeriod.CheckIn.Before(bookings[j].StayPeriod.CheckIn)
 	})
 
-	available := make([]domain.Period, 0, len(bookings)+1)
-	nextFreeStart := period.Start
+	slog.DebugContext(ctx, "search period",
+		"period", period)
+	slog.DebugContext(ctx, "cottage vacancies sorted",
+		"period", period, "bookings", bookings)
+
+	availablePeriods := make([]domain.Period, 0, len(bookings)+1)
+	nextFreeStart := period.CheckIn
 
 	for _, b := range bookings {
 		stay := b.StayPeriod
 
-		if !stay.Start.Before(period.End) {
+		if !stay.CheckIn.Before(period.CheckOut) {
+			slog.DebugContext(ctx, "stopping bookings scan; stay starts after period end",
+				"stay_check_in", stay.CheckIn, "check_out", period.CheckOut)
 			break
 		}
-		if !stay.End.After(period.Start) {
+		if !stay.CheckOut.After(period.CheckIn) {
+			slog.DebugContext(ctx, "skipping stay; stay ends before search period starts",
+				"stay_check_out", stay.CheckOut, "check_in", period.CheckIn)
 			continue
 		}
 
-		gapEnd := stay.Start.Add(-time.Nanosecond)
+		gapEnd := stay.CheckIn.Add(-time.Nanosecond)
 		if nextFreeStart.Before(gapEnd) {
-			available = append(available, domain.Period{Start: nextFreeStart, End: gapEnd})
+			availablePeriods = append(availablePeriods, domain.Period{CheckIn: nextFreeStart, CheckOut: gapEnd})
+			slog.DebugContext(ctx, "found gap",
+				"gap_check_in", nextFreeStart, "gap_check_out", gapEnd)
 		}
 
-		if stay.End.After(nextFreeStart) {
-			nextFreeStart = stay.End.Add(time.Nanosecond)
-			if nextFreeStart.After(period.End) {
-				nextFreeStart = period.End
+		if stay.CheckOut.After(nextFreeStart) {
+			nextFreeStart = stay.CheckOut.Add(time.Nanosecond)
+			if nextFreeStart.After(period.CheckOut) {
+				nextFreeStart = period.CheckOut
 			}
+			slog.DebugContext(ctx, "advanced next free start",
+				"next_free_start", nextFreeStart)
 		}
 	}
 
-	if nextFreeStart.Before(period.End) {
-		available = append(available, domain.Period{Start: nextFreeStart, End: period.End})
+	if nextFreeStart.Before(period.CheckOut) {
+		availablePeriods = append(availablePeriods, domain.Period{CheckIn: nextFreeStart, CheckOut: period.CheckOut})
+		slog.DebugContext(ctx, "added trailing gap",
+			"gap_check_in", nextFreeStart, "gap_check_out", period.CheckOut)
 	}
 
-	return available
+	slog.DebugContext(ctx, "finished cottage vacancies calculation",
+		"available_periods_count", len(availablePeriods), "available_periods", availablePeriods)
+	return availablePeriods
 }

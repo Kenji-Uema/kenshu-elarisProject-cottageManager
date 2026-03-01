@@ -1,0 +1,315 @@
+basePath: /
+definitions:
+  domain.CottageAvailablePeriod:
+    properties:
+      name:
+        type: string
+      periods:
+        items:
+          $ref: '#/definitions/domain.Period'
+        type: array
+    type: object
+  domain.Period:
+    properties:
+      end:
+        type: string
+      start:
+        type: string
+    type: object
+  dto.AvailablePeriodDTO:
+    properties:
+      from:
+        type: string
+      to:
+        type: string
+    type: object
+  dto.ConfirmationDto:
+    properties:
+      bookingId:
+        type: string
+    type: object
+  dto.DetailsDto:
+    properties:
+      amenities_description:
+        type: string
+      bathroom_description:
+        type: string
+      description:
+        type: string
+      furniture_description:
+        type: string
+      view:
+        type: string
+    type: object
+  dto.Dto:
+    properties:
+      bookings:
+        items:
+          type: string
+        type: array
+      details:
+        $ref: '#/definitions/dto.DetailsDto'
+      name:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+      price_per_night:
+        type: number
+      type:
+        type: string
+    type: object
+  dto.RequestDto:
+    properties:
+      checkInDate:
+        type: string
+      checkOutDate:
+        type: string
+      mainGuest:
+        type: string
+      numberOfGuests:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: API for managing cottages, availability, and bookings.
+  title: Cottage Manager API
+  version: "1.0"
+paths:
+  /cottage/{name}:
+    get:
+      description: Return a single cottage by its name
+      parameters:
+      - description: Cottage name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Dto'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get cottage by name
+      tags:
+      - cottages
+  /cottage/{name}/available-dates:
+    get:
+      description: Return available periods for a cottage within a date range
+      parameters:
+      - description: Cottage name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.AvailablePeriodDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get availability by cottage
+      tags:
+      - availability
+  /cottage/{name}/booking:
+    post:
+      consumes:
+      - application/json
+      description: Register a booking for a cottage
+      parameters:
+      - description: Cottage name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Booking request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RequestDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ConfirmationDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create booking
+      tags:
+      - bookings
+  /cottage/{name}/booking/{bookingId}:
+    delete:
+      description: Cancel a booking for a cottage
+      parameters:
+      - description: Cottage name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Booking ID
+        in: path
+        name: bookingId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete booking
+      tags:
+      - bookings
+  /cottage/type/{cottageType}/available-dates:
+    get:
+      description: Return available periods for cottages of a type within a date range
+      parameters:
+      - description: Cottage type
+        in: path
+        name: cottageType
+        required: true
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.CottageAvailablePeriod'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get availability by cottage type
+      tags:
+      - availability
+  /cottages:
+    get:
+      description: Return all cottages with details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.Dto'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List cottages
+      tags:
+      - cottages
+  /healthz:
+    get:
+      description: Returns 200 when service is running
+      responses:
+        "200":
+          description: OK
+      summary: Liveness probe
+      tags:
+      - health
+  /readyz:
+    get:
+      description: Returns 200 when dependencies are available
+      responses:
+        "200":
+          description: OK
+        "503":
+          description: Service Unavailable
+      summary: Readiness probe
+      tags:
+      - health
+swagger: "2.0"

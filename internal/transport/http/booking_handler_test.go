@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/app/fakes"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -18,9 +19,9 @@ import (
 )
 
 func TestHandler_AddBooking(t *testing.T) {
-	setupGin()
+	gin.SetMode(gin.TestMode)
 
-	validBody := dto.RequestDto{
+	validBody := dto.BookingRequestDto{
 		GuestId:        bson.NewObjectID().Hex(),
 		NumberOfGuests: 2,
 		CheckInDate:    time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
@@ -28,17 +29,22 @@ func TestHandler_AddBooking(t *testing.T) {
 	}
 
 	t.Run("success returns 200", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.POST("/booking/:name", h.AddBooking)
+		r.POST("/cottage/:name/booking", h.AddBooking)
 
-		svc.AddBookingFunc = func(_ context.Context, _ domain.Booking) (string, error) {
-			return "id123", nil
+		availabilitySvc.IsCottageAvailableFunc = func(_ context.Context, _ string, _ domain.Period) (bool, error) {
+			return true, nil
+		}
+
+		bookingSvc.AddBookingFunc = func(_ context.Context, _ domain.Booking) (bson.ObjectID, error) {
+			return bson.NewObjectID(), nil
 		}
 
 		body, _ := json.Marshal(validBody)
-		req := httptest.NewRequest(http.MethodPost, "/booking/A1", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/cottage/A1/booking", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -49,12 +55,13 @@ func TestHandler_AddBooking(t *testing.T) {
 	})
 
 	t.Run("invalid JSON returns 400", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.POST("/booking/:name", h.AddBooking)
+		r.POST("/cottage/:name/booking", h.AddBooking)
 
-		req := httptest.NewRequest(http.MethodPost, "/booking/A1", bytes.NewBufferString("{invalid}"))
+		req := httptest.NewRequest(http.MethodPost, "/cottage/A1/booking", bytes.NewBufferString("{invalid}"))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -65,15 +72,16 @@ func TestHandler_AddBooking(t *testing.T) {
 	})
 
 	t.Run("ToDomain error returns 400 (invalid hex id)", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.POST("/booking/:name", h.AddBooking)
+		r.POST("/cottage/:name/booking", h.AddBooking)
 
 		bad := validBody
 		bad.GuestId = "not-a-hex"
 		body, _ := json.Marshal(bad)
-		req := httptest.NewRequest(http.MethodPost, "/booking/A1", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/cottage/A1/booking", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -83,18 +91,23 @@ func TestHandler_AddBooking(t *testing.T) {
 		}
 	})
 
-	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+	t.Run("bookingService error returns 500", func(t *testing.T) {
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.POST("/booking/:name", h.AddBooking)
+		r.POST("/cottage/:name/booking", h.AddBooking)
 
-		svc.AddBookingFunc = func(_ context.Context, _ domain.Booking) (string, error) {
-			return "", assertAnyError()
+		availabilitySvc.IsCottageAvailableFunc = func(_ context.Context, _ string, _ domain.Period) (bool, error) {
+			return true, nil
+		}
+
+		bookingSvc.AddBookingFunc = func(_ context.Context, _ domain.Booking) (bson.ObjectID, error) {
+			return bson.NilObjectID, errors.New("any error")
 		}
 
 		body, _ := json.Marshal(validBody)
-		req := httptest.NewRequest(http.MethodPost, "/booking/A1", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/cottage/A1/booking", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -106,15 +119,16 @@ func TestHandler_AddBooking(t *testing.T) {
 }
 
 func TestHandler_RemoveBooking(t *testing.T) {
-	setupGin()
+	gin.SetMode(gin.TestMode)
 
 	t.Run("invalid bookingId returns 400", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
+		r.DELETE("/cottage/:name/booking/:bookingId", h.RemoveBooking)
 
-		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/nothex", nil)
+		req := httptest.NewRequest(http.MethodDelete, "/cottage/A1/booking/nothex", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -123,18 +137,19 @@ func TestHandler_RemoveBooking(t *testing.T) {
 		}
 	})
 
-	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+	t.Run("bookingService error returns 500", func(t *testing.T) {
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
+		r.DELETE("/cottage/:name/booking/:bookingId", h.RemoveBooking)
 
 		id := bson.NewObjectID().Hex()
-		svc.RemoveBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
-			return assertAnyError()
+		bookingSvc.RemoveBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return errors.New("any error")
 		}
 
-		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/"+id, nil)
+		req := httptest.NewRequest(http.MethodDelete, "/cottage/A1/booking/"+id, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -144,17 +159,18 @@ func TestHandler_RemoveBooking(t *testing.T) {
 	})
 
 	t.Run("success returns 200", func(t *testing.T) {
-		svc := appmocks.NewMockBookingService()
-		h := NewBookingHandler(svc)
+		bookingSvc := fakes.NewFakeBookingService()
+		availabilitySvc := fakes.NewFakeAvailabilityService()
+		h := NewBookingHandler(bookingSvc, availabilitySvc)
 		r := gin.New()
-		r.DELETE("/booking/:name/:bookingId", h.RemoveBooking)
+		r.DELETE("/cottage/:name/booking/:bookingId", h.RemoveBooking)
 
 		id := bson.NewObjectID().Hex()
-		svc.RemoveBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+		bookingSvc.RemoveBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
 			return nil
 		}
 
-		req := httptest.NewRequest(http.MethodDelete, "/booking/A1/"+id, nil)
+		req := httptest.NewRequest(http.MethodDelete, "/cottage/A1/booking/"+id, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/app/fakes"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
@@ -16,10 +16,10 @@ import (
 )
 
 func TestHandler_GetAll(t *testing.T) {
-	setupGin()
+	gin.SetMode(gin.TestMode)
 
 	t.Run("success returns 200 with cottages dto", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService()
+		svc := fakes.NewFakeCottageService()
 		h := NewCottageHandler(svc)
 		r := gin.New()
 		r.GET("/cottages", h.GetAll)
@@ -36,7 +36,7 @@ func TestHandler_GetAll(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}
-		var got []dto.Dto
+		var got []dto.Cottage
 		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 			t.Fatalf("invalid JSON: %v", err)
 		}
@@ -45,8 +45,8 @@ func TestHandler_GetAll(t *testing.T) {
 		}
 	})
 
-	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService()
+	t.Run("bookingService error returns 500", func(t *testing.T) {
+		svc := fakes.NewFakeCottageService()
 		h := NewCottageHandler(svc)
 		r := gin.New()
 		r.GET("/cottages", h.GetAll)
@@ -66,10 +66,10 @@ func TestHandler_GetAll(t *testing.T) {
 }
 
 func TestHandler_GetByName(t *testing.T) {
-	setupGin()
+	gin.SetMode(gin.TestMode)
 
 	t.Run("success returns 200 with dto", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService()
+		svc := fakes.NewFakeCottageService()
 		h := NewCottageHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name", h.GetByName)
@@ -85,7 +85,7 @@ func TestHandler_GetByName(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}
-		var got dto.Dto
+		var got dto.Cottage
 		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 			t.Fatalf("invalid JSON: %v", err)
 		}
@@ -95,7 +95,7 @@ func TestHandler_GetByName(t *testing.T) {
 	})
 
 	t.Run("not found returns 404", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService()
+		svc := fakes.NewFakeCottageService()
 		h := NewCottageHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name", h.GetByName)
@@ -114,7 +114,7 @@ func TestHandler_GetByName(t *testing.T) {
 	})
 
 	t.Run("unexpected error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockCottageService()
+		svc := fakes.NewFakeCottageService()
 		h := NewCottageHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name", h.GetByName)

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/Kenji-Uema/cottageManager/internal/app/validation"
 	"github.com/Kenji-Uema/cottageManager/internal/config"
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
-	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
 
@@ -24,119 +24,150 @@ func NewCottageRepo(db *mongo.Database, config config.CottageCollectionConfig) p
 	return &cottageRepo{collection: db.Collection(config.Name)}
 }
 
-func (r *cottageRepo) GetAll(ctx context.Context) ([]domain.Cottage, error) {
+func (r *cottageRepo) GetAll(ctx context.Context) ([]document.Cottage, error) {
 	cur, err := r.collection.Find(ctx, bson.D{})
 	defer func() {
 		if err := cur.Close(ctx); err != nil {
-			slog.Warn("failed to close mongo cursor", "error", err)
+			slog.WarnContext(ctx, "failed to close mongo cursor", "error", err)
 		}
 	}()
 
 	if err != nil {
-		slog.Error("mongo find failed", "error", err)
-		return nil, &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "find all cottages failed", "error", err)
+		return nil, &dbErrors.UnexpectedErr{Msg: "failed to find all cottages", Err: err}
 	}
 
-	var cottages []domain.Cottage
-	for cur.Next(ctx) {
-		var r domain.Cottage
-		if err := cur.Decode(&r); err != nil {
-			slog.Error("failed to decode cottage document", "error", err)
-			return nil, &dbErrors.UnexpectedError{Err: err}
-		}
-		cottages = append(cottages, r)
-	}
-
-	if err := cur.Err(); err != nil {
-		slog.Error("cursor iteration failed", "error", err)
-		return nil, &dbErrors.UnexpectedError{Err: err}
+	var cottages []document.Cottage
+	if err := cur.All(ctx, &cottages); err != nil {
+		slog.ErrorContext(ctx, "failed to decode to document.Cottage", "error", err)
+		return nil, &dbErrors.CorruptedDataErr{Err: err}
 	}
 
 	return cottages, nil
 }
 
-func (r *cottageRepo) GetByType(ctx context.Context, cottageType string) ([]domain.Cottage, error) {
-	filter := bson.M{"view": cottageType}
+func (r *cottageRepo) GetByView(ctx context.Context, cottageView string) ([]document.Cottage, error) {
+	if err := validation.New().NotBlank("cottageView", cottageView).Validate(); err != nil {
+		return nil, err
+	}
+
+	filter := bson.M{"view": cottageView}
 
 	cur, err := r.collection.Find(ctx, filter)
 	defer func() {
 		if err := cur.Close(ctx); err != nil {
-			slog.Warn("failed to close mongo cursor", "error", err)
+			slog.WarnContext(ctx, "failed to close mongo cursor", "error", err)
 		}
 	}()
 
 	if err != nil {
-		slog.Error("mongo find failed", "error", err, "filter", filter)
-		return nil, &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "mongo find cottages by view failed", "error", err, "filter", filter)
+		return nil, &dbErrors.UnexpectedErr{Msg: "mongo find cottages by view failed", Err: err}
 	}
 
-	var cottages []domain.Cottage
+	var cottages []document.Cottage
 	if err := cur.All(ctx, &cottages); err != nil {
-		slog.Error("failed to decode cottages", "error", err, "filter", filter)
-		return nil, &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "failed to decode cottages", "error", err, "filter", filter)
+		return nil, &dbErrors.CorruptedDataErr{Err: err}
 	}
 	return cottages, nil
 }
 
-func (r *cottageRepo) GetByName(ctx context.Context, name string) (domain.Cottage, error) {
+func (r *cottageRepo) GetByName(ctx context.Context, name string) (document.Cottage, error) {
+	if err := validation.New().NotBlank("cottageName", name).Validate(); err != nil {
+		return document.Cottage{}, err
+	}
+
 	filter := bson.M{"name": name}
 
-	var cottage domain.Cottage
-	err := r.collection.FindOne(ctx, filter).Decode(&cottage)
-
-	if err != nil {
+	var cottage document.Cottage
+	if err := r.collection.FindOne(ctx, filter).Decode(&cottage); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return domain.Cottage{}, &appErrors.CottageNotFound{Err: err}
+			slog.WarnContext(ctx, "cottage not found", "filter", filter)
+			return document.Cottage{}, &dbErrors.CottageNotFoundErr{CottageName: name}
 		}
-		slog.Error("failed to find cottage", "error", err, "filter", filter)
-		return domain.Cottage{}, &dbErrors.UnexpectedError{Err: err}
+
+		slog.ErrorContext(ctx, "failed to decode cottage", "error", err, "filter", filter)
+		return document.Cottage{}, &dbErrors.CorruptedDataErr{Err: err}
 	}
 
 	return cottage, nil
 }
 
-func (r *cottageRepo) GetBookingsId(ctx context.Context, name string) ([]bson.ObjectID, error) {
+func (r *cottageRepo) GetBookingsId(ctx context.Context, cottageName string) ([]bson.ObjectID, error) {
+	if err := validation.New().NotBlank("cottageName", cottageName).Validate(); err != nil {
+		return nil, err
+	}
+
 	var result struct {
 		Bookings []bson.ObjectID `bson:"bookings"`
 	}
 
-	err := r.collection.FindOne(
+	findResult := r.collection.FindOne(
 		ctx,
-		bson.M{"name": name},
+		bson.M{"name": cottageName},
 		options.FindOne().SetProjection(bson.M{
 			"bookings": 1,
-			"_id":      0,
 		}),
-	).Decode(&result)
+	)
 
-	if err != nil {
-		return nil, &dbErrors.UnexpectedError{Err: err}
+	if err := findResult.Decode(&result); err != nil {
+		slog.ErrorContext(ctx, "failed to decode bookings", "error", err)
+		return nil, &dbErrors.CorruptedDataErr{Err: err}
 	}
 
 	return result.Bookings, nil
 }
 
-func (r *cottageRepo) AddBooking(ctx context.Context, name string, bookingId bson.ObjectID) error {
-	filter := bson.M{"name": name}
-	update := bson.M{"$push": bson.M{"bookings": bookingId}}
+func (r *cottageRepo) AddBooking(ctx context.Context, cottageName string, bookingId bson.ObjectID) error {
+	if err := validation.New().
+		NotBlank("cottageName", cottageName).
+		NotNilObjectID("bookingId", bookingId).Validate(); err != nil {
+		return err
+	}
 
-	_, err := r.collection.UpdateOne(ctx, filter, update)
+	filter := bson.M{"name": cottageName}
+	update := bson.M{"$addToSet": bson.M{"bookings": bookingId}}
+
+	res, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		slog.Error("failed to add booking to cottage", "error", err, "cottage", name, "booking_id", bookingId.Hex())
-		return &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "failed to add booking to cottage", "error", err, "cottage", cottageName, "booking_id", bookingId.Hex())
+		return &dbErrors.UnexpectedErr{Msg: "failed to add booking to cottage", Err: err}
+	}
+
+	if res.MatchedCount == 0 {
+		return &dbErrors.CottageNotFoundErr{CottageName: cottageName}
+	}
+
+	if res.ModifiedCount == 0 {
+		return &dbErrors.BookingsNotUpdatedErr{CottageName: cottageName, BookingId: bookingId}
 	}
 
 	return nil
 }
 
-func (r *cottageRepo) DeleteBooking(ctx context.Context, name string, bookingId bson.ObjectID) error {
-	filter := bson.M{"name": name}
+func (r *cottageRepo) DeleteBooking(ctx context.Context, cottageName string, bookingId bson.ObjectID) error {
+	if err := validation.New().NotBlank("cottageName", cottageName).
+		NotNilObjectID("bookingId", bookingId).
+		Validate(); err != nil {
+		return err
+	}
+
+	filter := bson.M{"name": cottageName}
 	update := bson.M{"$pull": bson.M{"bookings": bookingId}}
 
-	_, err := r.collection.UpdateOne(ctx, filter, update)
+	res, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		slog.Error("failed to remove booking from cottage", "error", err, "cottage", name, "booking_id", bookingId.Hex())
-		return &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "failed to remove booking from cottage", "error", err, "cottage", cottageName, "booking_id", bookingId.Hex())
+		return &dbErrors.UnexpectedErr{Msg: "failed to remove booking from cottage", Err: err}
+	}
+
+	if res.MatchedCount == 0 {
+		return &dbErrors.CottageNotFoundErr{CottageName: cottageName}
+	}
+
+	if res.ModifiedCount == 0 {
+		return &dbErrors.BookingsNotUpdatedErr{CottageName: cottageName, BookingId: bookingId}
 	}
 
 	return nil

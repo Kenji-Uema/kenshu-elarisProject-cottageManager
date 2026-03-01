@@ -3,10 +3,13 @@ package telemetry
 import (
 	"context"
 	"errors"
-	"strings"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/config"
+	"go.opentelemetry.io/contrib/propagators/b3"
+	"go.opentelemetry.io/otel/propagation"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -17,114 +20,99 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-type Shutdown func(context.Context) error
-
-func Setup(ctx context.Context, cfg config.TelemetryConfig) (Shutdown, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	shutdown, err := initOtel(ctx, cfg)
+func Init(ctx context.Context, cfg config.TelemetryConfig, appCfg config.AppConfig) (func(context.Context) error, error) {
+	otelResource, err := resource.New(ctx,
+		resource.WithTelemetrySDK(),
+		resource.WithAttributes(semconv.ServiceName(fmt.Sprintf("%s:%s", appCfg.ServiceName, appCfg.Version))))
 	if err != nil {
+		slog.ErrorContext(ctx, "create otel resource", "error", err)
 		return nil, err
 	}
 
-	return shutdown, nil
-}
-
-func initOtel(ctx context.Context, otelConfig config.TelemetryConfig) (Shutdown, error) {
-	endpoint := strings.TrimSpace(otelConfig.OTLPEndpoint)
-	if endpoint == "" {
-		endpoint = "localhost:4317"
+	traceProvider, err := newTraceProvider(ctx, otelResource, cfg)
+	if err != nil {
+		slog.ErrorContext(ctx, "create trace provider", "error", err)
+		return nil, err
 	}
 
-	// TODO check this
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
-		resource.WithHost(),
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(""),
-			semconv.DeploymentEnvironmentKey.String(""),
-			semconv.ServiceVersionKey.String(""),
+	meterProvider, err := newMeterProvider(ctx, otelResource, cfg)
+	if err != nil {
+		slog.ErrorContext(ctx, "create meter provider", "error", err)
+		return nil, err
+	}
+
+	otel.SetTracerProvider(traceProvider)
+	otel.SetMeterProvider(meterProvider)
+
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			b3.New(),
+			propagation.TraceContext{},
+			propagation.Baggage{},
 		),
 	)
-	if err != nil {
+
+	if err := initMetrics(); err != nil {
+		slog.ErrorContext(ctx, "create startup histogram", "error", err)
 		return nil, err
 	}
-
-	traceExp, err := otlptracegrpc.New(ctx, traceClientOptions(endpoint)...)
-	if err != nil {
-		return nil, err
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithResource(res),
-		sdktrace.WithBatcher(traceExp),
-	)
-	otel.SetTracerProvider(tp)
-
-	metricExp, err := otlpmetricgrpc.New(ctx, metricClientOptions(endpoint)...)
-	if err != nil {
-		return nil, err
-	}
-
-	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp,
-			sdkmetric.WithInterval(10*time.Second),
-		)),
-	)
-	otel.SetMeterProvider(mp)
 
 	return func(ctx context.Context) error {
-		var errs []error
-		if err := mp.Shutdown(ctx); err != nil {
-			errs = append(errs, err)
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		var shutdownErr error
+		if err := traceProvider.Shutdown(shutdownCtx); err != nil {
+			shutdownErr = errors.Join(shutdownErr, err)
 		}
-		if err := tp.Shutdown(ctx); err != nil {
-			errs = append(errs, err)
+		if err := meterProvider.Shutdown(shutdownCtx); err != nil {
+			shutdownErr = errors.Join(shutdownErr, err)
 		}
-		return errors.Join(errs...)
+
+		return shutdownErr
 	}, nil
 }
 
-func traceClientOptions(endpoint string) []otlptracegrpc.Option {
-	opts := make([]otlptracegrpc.Option, 0, 3)
-
-	if hasScheme(endpoint) {
-		opts = append(opts, otlptracegrpc.WithEndpointURL(endpoint))
-	} else {
-		opts = append(opts, otlptracegrpc.WithEndpoint(endpoint))
+func newTraceProvider(ctx context.Context, otelResource *resource.Resource, cfg config.TelemetryConfig) (*sdktrace.TracerProvider, error) {
+	exporter, err := otlptracegrpc.New(ctx, otelTraceOptions(cfg)...)
+	if err != nil {
+		return nil, err
 	}
 
-	if shouldUseInsecure(endpoint) {
+	return sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(otelResource),
+	), nil
+}
+
+func newMeterProvider(ctx context.Context, otelResource *resource.Resource, cfg config.TelemetryConfig) (*sdkmetric.MeterProvider, error) {
+	exporter, err := otlpmetricgrpc.New(ctx, otelMetricOptions(cfg)...)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := sdkmetric.NewPeriodicReader(exporter)
+	return sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(otelResource),
+		sdkmetric.WithReader(reader)), nil
+}
+
+func otelTraceOptions(cfg config.TelemetryConfig) []otlptracegrpc.Option {
+	opts := []otlptracegrpc.Option{
+		otlptracegrpc.WithEndpoint(fmt.Sprintf("%s:%d", cfg.OTLPEndpoint, cfg.OTLPGrpcPort)),
+	}
+	if cfg.OTLPInsecure {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
-
 	return opts
 }
 
-func metricClientOptions(endpoint string) []otlpmetricgrpc.Option {
-	opts := make([]otlpmetricgrpc.Option, 0, 3)
-
-	if hasScheme(endpoint) {
-		opts = append(opts, otlpmetricgrpc.WithEndpointURL(endpoint))
-	} else {
-		opts = append(opts, otlpmetricgrpc.WithEndpoint(endpoint))
+func otelMetricOptions(cfg config.TelemetryConfig) []otlpmetricgrpc.Option {
+	opts := []otlpmetricgrpc.Option{
+		otlpmetricgrpc.WithEndpoint(fmt.Sprintf("%s:%d", cfg.OTLPEndpoint, cfg.OTLPGrpcPort)),
 	}
-
-	if shouldUseInsecure(endpoint) {
+	if cfg.OTLPInsecure {
 		opts = append(opts, otlpmetricgrpc.WithInsecure())
 	}
-
 	return opts
-}
-
-func shouldUseInsecure(endpoint string) bool {
-	return !strings.HasPrefix(strings.ToLower(endpoint), "https://")
-}
-
-func hasScheme(endpoint string) bool {
-	return strings.Contains(endpoint, "://")
 }

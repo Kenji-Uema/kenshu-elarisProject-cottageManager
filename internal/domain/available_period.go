@@ -2,11 +2,13 @@ package domain
 
 import (
 	"time"
+
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 )
 
 type Period struct {
-	Start time.Time
-	End   time.Time
+	CheckIn  time.Time
+	CheckOut time.Time
 }
 
 type CottageAvailablePeriod struct {
@@ -14,15 +16,26 @@ type CottageAvailablePeriod struct {
 	Periods []Period
 }
 
-func (p *Period) Valid() bool {
-	return p.Start.Before(p.End)
-}
-
 func (p *Period) Normalize() {
 	startOfDay := func(t time.Time) time.Time {
 		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 	}
 
-	p.Start = startOfDay(p.Start)
-	p.End = startOfDay(p.End.AddDate(0, 0, 1)).Add(-time.Nanosecond)
+	p.CheckIn = startOfDay(p.CheckIn)
+	p.CheckOut = startOfDay(p.CheckOut.AddDate(0, 0, 1)).Add(-time.Nanosecond)
+}
+
+func (c *CottageAvailablePeriod) ToDto() dto.AvailablePeriodDTO {
+	periods := make([]dto.PeriodDto, len(c.Periods))
+	for i, p := range c.Periods {
+		periods[i] = dto.PeriodDto{
+			CheckIn:  p.CheckIn,
+			CheckOut: p.CheckOut,
+		}
+	}
+
+	return dto.AvailablePeriodDTO{
+		Name:    c.Name,
+		Periods: periods,
+	}
 }

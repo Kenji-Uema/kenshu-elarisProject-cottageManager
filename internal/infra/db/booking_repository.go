@@ -2,10 +2,12 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
+	"github.com/Kenji-Uema/cottageManager/internal/app/validation"
 	"github.com/Kenji-Uema/cottageManager/internal/config"
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -20,32 +22,33 @@ func NewBookingRepo(db *mongo.Database, config config.BookingCollectionConfig) p
 	return &bookingRepo{collection: db.Collection(config.Name)}
 }
 
-func (r *bookingRepo) GetBookings(ctx context.Context, ids []bson.ObjectID) ([]domain.Booking, error) {
-	if len(ids) == 0 {
-		return []domain.Booking{}, nil
+func (r *bookingRepo) GetBookings(ctx context.Context, ids []bson.ObjectID) ([]document.Booking, error) {
+	if err := validation.New().
+		NotZeroValue("ids", ids).
+		NoDuplicates("ids", ids).Validate(); err != nil {
+		return nil, err
 	}
 
 	cur, err := r.collection.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
 	defer func() {
 		if err := cur.Close(ctx); err != nil {
-			slog.Warn("failed to close mongo cursor", "error", err)
+			slog.WarnContext(ctx, "failed to close mongo cursor", "error", err)
 		}
 	}()
 
 	if err != nil {
-		slog.Error("failed to fetch bookings", "error", err, "ids", ids)
-		return nil, &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "failed to fetch bookings", "error", err, "ids", ids)
+		return nil, &dbErrors.UnexpectedErr{Msg: "failed to fetch bookings", Err: err}
 	}
 
-	var bookings []domain.Booking
+	var bookings []document.Booking
 	if err := cur.All(ctx, &bookings); err != nil {
-		slog.Error("failed to decode bookings", "error", err)
-		return nil, &dbErrors.UnexpectedError{Err: err}
+		slog.ErrorContext(ctx, "failed to decode bookings", "error", err)
+		return nil, &dbErrors.CorruptedDataErr{Err: err}
 	}
 
 	// Check if all requested IDs were returned
 	if len(bookings) != len(ids) {
-		// optional: figure out which IDs are missing
 		found := make(map[bson.ObjectID]struct{}, len(bookings))
 		for _, b := range bookings {
 			found[b.Id] = struct{}{}
@@ -58,30 +61,50 @@ func (r *bookingRepo) GetBookings(ctx context.Context, ids []bson.ObjectID) ([]d
 			}
 		}
 
-		slog.Warn("missing bookings detected", "missing", missing)
-		return nil, &dbErrors.MissingBookingsError{Missing: missing}
+		slog.ErrorContext(ctx, "missing bookings detected", "missing", missing)
+		return nil, &dbErrors.MissingBookingsErr{Missing: missing}
 	}
 
 	return bookings, nil
 }
 
-func (r *bookingRepo) AddBooking(ctx context.Context, booking domain.Booking) (bson.ObjectID, error) {
-	result, err := r.collection.InsertOne(ctx, booking)
-
-	if err != nil {
-		slog.Error("failed to insert booking", "error", err)
-		return bson.NilObjectID, &dbErrors.UnexpectedError{Err: err}
+func (r *bookingRepo) AddBooking(ctx context.Context, booking document.Booking) (bson.ObjectID, error) {
+	if err := validation.New().NotZeroValue("booking", booking).Validate(); err != nil {
+		return bson.NilObjectID, err
 	}
 
-	return result.InsertedID.(bson.ObjectID), nil
+	res, err := r.collection.InsertOne(ctx, booking)
+
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to insert booking", "error", err, "booking", booking)
+		return bson.NilObjectID, &dbErrors.UnexpectedErr{Msg: "failed to insert booking", Err: err}
+	}
+
+	bookingId, ok := res.InsertedID.(bson.ObjectID)
+	if !ok {
+		return bson.NilObjectID, &dbErrors.UnexpectedErr{
+			Msg: "unexpected booking bookingId type",
+			Err: fmt.Errorf("insertedID type %T", res.InsertedID),
+		}
+	}
+
+	return bookingId, nil
 }
 
-func (r *bookingRepo) DeleteBooking(ctx context.Context, id bson.ObjectID) (bool, error) {
-	deleted, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	if err != nil {
-		slog.Error("failed to delete booking", "error", err, "booking_id", id.Hex())
-		return false, &dbErrors.UnexpectedError{Err: err}
+func (r *bookingRepo) DeleteBooking(ctx context.Context, id bson.ObjectID) error {
+	if err := validation.New().NotNilObjectID("id", id).Validate(); err != nil {
+		return err
 	}
 
-	return deleted.DeletedCount != 0, nil
+	res, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to delete booking", "error", err, "booking_id", id.Hex())
+		return &dbErrors.UnexpectedErr{Msg: "failed to delete booking", Err: err}
+	}
+
+	if res.DeletedCount == 0 {
+		return &dbErrors.BookingNotFoundErr{BookingId: id}
+	}
+
+	return nil
 }

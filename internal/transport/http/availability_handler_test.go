@@ -3,12 +3,13 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	appmocks "github.com/Kenji-Uema/cottageManager/internal/app/mocks"
+	"github.com/Kenji-Uema/cottageManager/internal/app/fakes"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 
@@ -16,18 +17,18 @@ import (
 )
 
 func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
-	setupGin()
+	gin.SetMode(gin.TestMode)
 
 	t.Run("success returns 200 with periods", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService()
+		svc := fakes.NewFakeAvailabilityService()
 		h := NewAvailabilityHandler(svc)
 		r := gin.New()
 		r.GET("/cottage/:name/available-dates", h.GetAvailablePeriods)
 
 		from := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
 		to := time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC)
-		expected := []domain.Period{{Start: from, End: to}}
-		svc.GetAvailablePeriodsFunc = func(_ context.Context, _ string, _ domain.Period) ([]domain.Period, error) {
+		expected := domain.CottageAvailablePeriod{Name: "A1", Periods: []domain.Period{{CheckIn: from, CheckOut: to}}}
+		svc.GetAvailablePeriodsFunc = func(_ context.Context, _ string, _ domain.Period) (domain.CottageAvailablePeriod, error) {
 			return expected, nil
 		}
 
@@ -38,26 +39,26 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d, body: %s", w.Code, w.Body.String())
 		}
-		var got []dto.AvailablePeriodDTO
+		var got dto.AvailablePeriodDTO
 		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 			t.Fatalf("invalid JSON: %v", err)
 		}
-		if len(got) != 1 || !got[0].From.Equal(from) || !got[0].To.Equal(to) {
+		if got.Name != "A1" || len(got.Periods) != 1 || !got.Periods[0].CheckIn.Equal(from) || !got.Periods[0].CheckOut.Equal(to) {
 			t.Fatalf("unexpected body: %+v", got)
 		}
 	})
 
 	t.Run("service error returns 500", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService()
+		svc := fakes.NewFakeAvailabilityService()
 		h := NewAvailabilityHandler(svc)
 		r := gin.New()
-		r.GET("/availability/:name", h.GetAvailablePeriods)
+		r.GET("/cottage/:name/available-dates", h.GetAvailablePeriods)
 
-		svc.GetAvailablePeriodsFunc = func(_ context.Context, _ string, _ domain.Period) ([]domain.Period, error) {
-			return nil, assertAnyError()
+		svc.GetAvailablePeriodsFunc = func(_ context.Context, _ string, _ domain.Period) (domain.CottageAvailablePeriod, error) {
+			return domain.CottageAvailablePeriod{}, errors.New("any error")
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/availability/A1?from=2025-09-01&to=2025-09-30", nil)
+		req := httptest.NewRequest(http.MethodGet, "/cottage/A1/available-dates?from=2025-09-01&to=2025-09-30", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -67,13 +68,13 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 	})
 
 	t.Run("binding error returns 400 (missing query)", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService()
+		svc := fakes.NewFakeAvailabilityService()
 		h := NewAvailabilityHandler(svc)
 		r := gin.New()
-		r.GET("/availability/:name", h.GetAvailablePeriods)
+		r.GET("/cottage/:name/available-dates", h.GetAvailablePeriods)
 
 		// Missing 'to' query param
-		req := httptest.NewRequest(http.MethodGet, "/availability/A1?from=2025-09-01", nil)
+		req := httptest.NewRequest(http.MethodGet, "/cottage/A1/available-dates?from=2025-09-01", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -84,22 +85,22 @@ func TestAvailabilityHandler_GetAvailablePeriods(t *testing.T) {
 }
 
 func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
-	setupGin()
+	gin.SetMode(gin.TestMode)
 
 	t.Run("success returns 200 with available periods per cottage", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService()
+		svc := fakes.NewFakeAvailabilityService()
 		h := NewAvailabilityHandler(svc)
 		r := gin.New()
-		r.GET("/availability/type/:type", h.GetAvailablePeriodsByCottageType)
+		r.GET("/cottage/type/:cottageType/available-dates", h.GetAvailablePeriodsByCottageType)
 
 		from := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
 		to := time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC)
-		expected := []domain.CottageAvailablePeriod{{Name: "A1", Periods: []domain.Period{{Start: from, End: to}}}}
+		expected := []domain.CottageAvailablePeriod{{Name: "A1", Periods: []domain.Period{{CheckIn: from, CheckOut: to}}}}
 		svc.GetAvailablePeriodsByCottageTypeFunc = func(_ context.Context, _ string, _ domain.Period) ([]domain.CottageAvailablePeriod, error) {
 			return expected, nil
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/availability/type/lux?from=2025-09-01&to=2025-09-30", nil)
+		req := httptest.NewRequest(http.MethodGet, "/cottage/type/lux/available-dates?from=2025-09-01&to=2025-09-30", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -110,19 +111,19 @@ func TestAvailabilityHandler_GetAvailablePeriodsByCottageType(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 			t.Fatalf("invalid JSON: %v", err)
 		}
-		if len(got) != 1 || got[0].Name != "A1" || len(got[0].Periods) != 1 || !got[0].Periods[0].Start.Equal(from) {
+		if len(got) != 1 || got[0].Name != "A1" || len(got[0].Periods) != 1 || !got[0].Periods[0].CheckIn.Equal(from) {
 			t.Fatalf("unexpected body: %+v", got)
 		}
 	})
 
 	t.Run("binding error returns 400 (from>to)", func(t *testing.T) {
-		svc := appmocks.NewMockAvailabilityService()
+		svc := fakes.NewFakeAvailabilityService()
 		h := NewAvailabilityHandler(svc)
 		r := gin.New()
-		r.GET("/availability/type/:type", h.GetAvailablePeriodsByCottageType)
+		r.GET("/cottage/type/:cottageType/available-dates", h.GetAvailablePeriodsByCottageType)
 
 		// from after to
-		req := httptest.NewRequest(http.MethodGet, "/availability/type/lux?from=2025-10-01&to=2025-09-01", nil)
+		req := httptest.NewRequest(http.MethodGet, "/cottage/type/lux/available-dates?from=2025-10-01&to=2025-09-01", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 

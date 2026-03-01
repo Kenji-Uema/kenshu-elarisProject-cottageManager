@@ -4,18 +4,21 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/app"
 	"github.com/Kenji-Uema/cottageManager/internal/config"
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	mdb "github.com/Kenji-Uema/cottageManager/internal/infra/db"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/logging"
-	http2 "github.com/Kenji-Uema/cottageManager/internal/transport/http"
+	transport "github.com/Kenji-Uema/cottageManager/internal/transport/http"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/gin-gonic/gin"
@@ -36,17 +39,18 @@ var (
 	mongoClient    *mongo.Client
 	db             *mongo.Database
 	router         *gin.Engine
-	logShutdown    func(context.Context) error
 )
+
+type noopTxManager struct{}
+
+func (noopTxManager) WithTransaction(ctx context.Context, callback func(ctx context.Context) (any, error)) (any, error) {
+	return callback(ctx)
+}
 
 var _ = BeforeSuite(func() {
 	gin.SetMode(gin.TestMode)
+	slog.SetDefault(logging.NewLogger())
 	var err error
-	logShutdown, err = logging.Setup(context.Background(), config.LogConfig{
-		Level:  "info",
-		Format: "text",
-	}, config.TelemetryConfig{})
-	Expect(err).NotTo(HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -69,31 +73,20 @@ var _ = BeforeSuite(func() {
 
 	cottageRepo := mdb.NewCottageRepo(db, config.CottageCollectionConfig{Name: "cottage"})
 	bookingRepo := mdb.NewBookingRepo(db, config.BookingCollectionConfig{Name: "booking"})
+	txManager := noopTxManager{}
 
-	availabilityService := app.NewAvailabilityService(cottageRepo, bookingRepo)
 	cottageService := app.NewCottageService(cottageRepo)
-	bookingService := app.NewBookingService(availabilityService, cottageService, bookingRepo)
+	bookingService := app.NewBookingService(cottageService, bookingRepo, txManager)
+	availabilityService := app.NewAvailabilityService(cottageService, bookingService)
 
-	availabilityHandler := http2.NewAvailabilityHandler(availabilityService)
-	bookingHandler := http2.NewBookingHandler(bookingService)
-	cottageHandler := http2.NewCottageHandler(cottageService)
-
-	router = gin.New()
-
-	// return the list with details of all cottages
-	router.GET("/cottages", cottageHandler.GetAll)
-	// return the cottage for the given name
-	router.GET("/cottage/:name", cottageHandler.GetByName)
-
-	// return a list of available periods in the given date range
-	router.GET("/cottage/:name/available-dates", availabilityHandler.GetAvailablePeriods)
-	// return a list of available periods for every cottage of a given type in the given date range
-	router.GET("/cottage/type/:cottageType/available-dates", availabilityHandler.GetAvailablePeriodsByCottageType)
-
-	// register a booking for a cottage
-	router.POST("/cottage/:name/booking", bookingHandler.AddBooking)
-	// delete a booking for a given cottage
-	router.DELETE("/cottage/:name/booking/:bookingId", bookingHandler.RemoveBooking)
+	httpServer := transport.NewHttpServer(config.ServerConfig{})
+	httpServer.SetupRoutes(
+		availabilityService,
+		bookingService,
+		cottageService,
+		&mdb.Db{Client: mongoClient, Database: db},
+	)
+	router = httpServer.Router
 
 })
 
@@ -108,10 +101,6 @@ var _ = AfterSuite(func() {
 	if mongoContainer != nil {
 		_ = testcontainers.TerminateContainer(mongoContainer)
 	}
-
-	if logShutdown != nil {
-		_ = logShutdown(context.Background())
-	}
 })
 
 var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
@@ -124,12 +113,13 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 		db = mongoClient.Database(testDatabaseName)
 		_ = db.Drop(ctx)
 
-		data, err := os.ReadFile("test_data/cottages.json")
+		dataPath := projectRootTestDataPath()
+		data, err := os.ReadFile(dataPath)
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
 
-		var items []domain.Cottage
+		var items []document.Cottage
 		if err := json.Unmarshal(data, &items); err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
@@ -151,9 +141,9 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 		}
 	})
 
-	var cottages []dto.Dto
-	var lilyOfTheValleyCottage dto.Dto
-	var lilyAvailablePeriods []dto.AvailablePeriodDTO
+	var cottages []dto.Cottage
+	var selectedCottage dto.Cottage
+	var selectedCottageAvailablePeriods dto.AvailablePeriodDTO
 	var bookingConfirmation dto.ConfirmationDto
 
 	It("client browsers all cottages", func() {
@@ -171,55 +161,54 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 		for i, c := range cottages {
 			cottageNames[i] = c.Name
 		}
-		Expect(cottageNames).To(ContainElements("Barbara Karst", "Juanita Hatten", "Golden Glow", "Singapore White",
-			"Raspberry Ice", "Torch Ginger", "Bird of Paradise", "Passion Flower", "Wild Rose", "Lily of the Valley"))
+		Expect(cottageNames).To(ContainElements("Rose", "Lily", "Daisy"))
 	})
 
-	It("client choose to see Lily of the Valley cottage", func() {
-		req := httptest.NewRequest(http.MethodGet, "/cottage/Lily%20of%20the%20Valley", nil)
+	It("client choose to see Daisy cottage", func() {
+		req := httptest.NewRequest(http.MethodGet, "/cottage/Daisy", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if err := json.Unmarshal(w.Body.Bytes(), &lilyOfTheValleyCottage); err != nil {
+		if err := json.Unmarshal(w.Body.Bytes(), &selectedCottage); err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		Expect(lilyOfTheValleyCottage.Name).To(Equal("Lily of the Valley"))
+		Expect(selectedCottage.Name).To(Equal("Daisy"))
 	})
 
-	It("client checks the availability of Lily of the Valley cottage for next week", func() {
+	It("client checks the availability of Daisy cottage for next week", func() {
 		nextWeek := time.Now().UTC().AddDate(0, 0, 7)
 		weekAfterNextWeek := nextWeek.AddDate(0, 0, 7)
 
 		periodStart := nextWeek.Format("2006-01-02")
 		periodEnd := weekAfterNextWeek.Format("2006-01-02")
 
-		req := httptest.NewRequest(http.MethodGet, "/cottage/Lily%20of%20the%20Valley/available-dates?from="+periodStart+"&to="+periodEnd, nil)
+		req := httptest.NewRequest(http.MethodGet, "/cottage/Daisy/available-dates?from="+periodStart+"&to="+periodEnd, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if err := json.Unmarshal(w.Body.Bytes(), &lilyAvailablePeriods); err != nil {
+		if err := json.Unmarshal(w.Body.Bytes(), &selectedCottageAvailablePeriods); err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
 
 		Expect(w.Code).To(Equal(http.StatusOK))
-		Expect(len(lilyAvailablePeriods)).To(Equal(1))
+		Expect(len(selectedCottageAvailablePeriods.Periods)).To(Equal(1))
 	})
 
-	It("client tries to book Lily of the Valley cottage for next week", func() {
-		bookingRequest, err := json.Marshal(dto.RequestDto{
+	It("client tries to book Daisy cottage for next week", func() {
+		bookingRequest, err := json.Marshal(dto.BookingRequestDto{
 			GuestId:        bson.NewObjectID().Hex(),
 			NumberOfGuests: 2,
-			CheckInDate:    lilyAvailablePeriods[0].From.Format("2006-01-02"),
-			CheckOutDate:   lilyAvailablePeriods[0].To.Format("2006-01-02"),
+			CheckInDate:    selectedCottageAvailablePeriods.Periods[0].CheckIn.Format("2006-01-02"),
+			CheckOutDate:   selectedCottageAvailablePeriods.Periods[0].CheckOut.Format("2006-01-02"),
 		})
 
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
 
-		req := httptest.NewRequest(http.MethodPost, "/cottage/Lily%20of%20the%20Valley/booking", bytes.NewReader(bookingRequest))
+		req := httptest.NewRequest(http.MethodPost, "/cottage/Daisy/booking", bytes.NewReader(bookingRequest))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -230,3 +219,14 @@ var _ = Describe("Scenario: client tries to book a cottage", Ordered, func() {
 		Expect(w.Code).To(Equal(http.StatusOK))
 	})
 })
+
+func projectRootTestDataPath() string {
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "../test_data/cottages.json"
+	}
+
+	// this file is in /ginkgo; project root is one level up
+	projectRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), ".."))
+	return filepath.Join(projectRoot, "test_data", "cottages.json")
+}

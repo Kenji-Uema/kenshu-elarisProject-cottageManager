@@ -3,12 +3,11 @@ package db
 import (
 	"context"
 	"errors"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -23,24 +22,24 @@ func Test_bookingRepo_AddBooking(t *testing.T) {
 		r := &bookingRepo{collection: br}
 
 		t.Run("when booking added successfully, should return inserted BookingId", func(t *testing.T) {
-			booking := domain.Booking{Id: bson.NewObjectID()}
+			booking := document.Booking{Id: bson.NewObjectID()}
 
 			got, err := r.AddBooking(ctx, booking)
 			if err != nil {
 				t.Errorf("AddBooking() error = %v", err)
 			}
-			if !reflect.DeepEqual(got, booking.Id) {
+			if got != booking.Id {
 				t.Errorf("AddBooking() got = %v, want %v", got, booking.Id)
 			}
 		})
 
 		t.Run("when booking already exists, should return error", func(t *testing.T) {
 			objectId, _ := bson.ObjectIDFromHex("86a7d3bb21169a393dd1db1b")
-			booking := domain.Booking{Id: objectId}
+			booking := document.Booking{Id: objectId}
 
 			_, err := r.AddBooking(ctx, booking)
 
-			var unexpectedError *dbErrors.UnexpectedError
+			var unexpectedError *dbErrors.UnexpectedErr
 			if !errors.As(err, &unexpectedError) {
 				t.Errorf("AddBooking() error = %v", err)
 			}
@@ -55,26 +54,20 @@ func Test_bookingCrudRepo_DeleteBooking(t *testing.T) {
 
 		r := &bookingRepo{collection: br}
 
-		t.Run("when booking deleted successfully, should return true", func(t *testing.T) {
+		t.Run("when booking deleted successfully, should return nil", func(t *testing.T) {
 			objectId, _ := bson.ObjectIDFromHex("86a7d3bb21169a393dd1db1b")
-			got, err := r.DeleteBooking(ctx, objectId)
+			err := r.DeleteBooking(ctx, objectId)
 
 			if err != nil {
 				t.Errorf("DeleteBooking() error = %v", err)
-			}
-			if !reflect.DeepEqual(got, true) {
-				t.Errorf("DeleteBooking() got = %v, want %v", got, true)
 			}
 		})
 
-		t.Run("when try to delete booking that does not exits, should return false", func(t *testing.T) {
-			got, err := r.DeleteBooking(ctx, bson.NewObjectIDFromTimestamp(time.Now()))
-
-			if err != nil {
-				t.Errorf("DeleteBooking() error = %v", err)
-			}
-			if !reflect.DeepEqual(got, false) {
-				t.Errorf("DeleteBooking() got = %v, want %v", got, false)
+		t.Run("when try to delete booking that does not exist, should return BookingNotFoundErr", func(t *testing.T) {
+			err := r.DeleteBooking(ctx, bson.NewObjectIDFromTimestamp(time.Now()))
+			var target *dbErrors.BookingNotFoundErr
+			if !errors.As(err, &target) {
+				t.Errorf("DeleteBooking() expected BookingNotFoundErr, got %v", err)
 			}
 		})
 	})
@@ -89,19 +82,26 @@ func Test_bookingRepo_GetBookings(t *testing.T) {
 
 		t.Run("when list of ids is empty, should return empty slice", func(t *testing.T) {
 			got, err := r.GetBookings(ctx, []bson.ObjectID{})
-
 			if err != nil {
-				t.Errorf("unexpected error type: %v", err)
+				t.Errorf("unexpected error: %v", err)
 			}
 			if len(got) != 0 {
 				t.Errorf("expected empty slice, got %v", got)
 			}
 		})
 
+		t.Run("when ids has duplicates, should return validation error", func(t *testing.T) {
+			id, _ := bson.ObjectIDFromHex("86a7d3bb21169a393dd1db1b")
+			_, err := r.GetBookings(ctx, []bson.ObjectID{id, id})
+			if err == nil {
+				t.Errorf("expected validation error for duplicate ids, got nil")
+			}
+		})
+
 		t.Run("when searched bookingId does not exist, should return error", func(t *testing.T) {
 			_, err := r.GetBookings(ctx, []bson.ObjectID{bson.NewObjectIDFromTimestamp(time.Now())})
 
-			var target *dbErrors.MissingBookingsError
+			var target *dbErrors.MissingBookingsErr
 			if !errors.As(err, &target) {
 				t.Errorf("unexpected error type: %v", err)
 			}
@@ -113,7 +113,7 @@ func Test_bookingRepo_GetBookings(t *testing.T) {
 
 			_, err := r.GetBookings(ctx, []bson.ObjectID{id, missingId})
 
-			var target *dbErrors.MissingBookingsError
+			var target *dbErrors.MissingBookingsErr
 			if !errors.As(err, &target) {
 				t.Errorf("unexpected error type: %v", err)
 			}
@@ -134,7 +134,7 @@ func Test_bookingRepo_GetBookings(t *testing.T) {
 				gotIds[i] = b.Id
 			}
 
-			if !slices.Contains(gotIds, idA) && slices.Contains(gotIds, idB) {
+			if !slices.Contains(gotIds, idA) || !slices.Contains(gotIds, idB) {
 				t.Errorf("unexpected list of returned bookings")
 			}
 		})

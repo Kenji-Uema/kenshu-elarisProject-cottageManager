@@ -5,7 +5,7 @@ type CottageNameURI struct {
 }
 
 type CottageTypeURI struct {
-	Type string `uri:"type" binding:"required"`
+	CottageType string `uri:"cottageType" binding:"required"`
 }
 
 type CottageNameAndBookingIdURI struct {

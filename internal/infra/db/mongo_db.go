@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Kenji-Uema/cottageManager/internal/config"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo"
 )
 
 type Db struct {
@@ -16,25 +18,42 @@ type Db struct {
 	Database *mongo.Database
 }
 
-func NewMongoDb(connectionContext context.Context, uri, dbName string) (*Db, error) {
-	clientOptions := options.Client().
-		ApplyURI(uri).
-		SetConnectTimeout(10 * time.Second)
-	client, err := mongo.Connect(clientOptions)
+func NewMongoDbFromConfig(ctx context.Context, cfg config.MongoConfig) (*Db, error) {
+	startCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.StartupTimeoutInSeconds)*time.Second)
+	defer cancel()
 
+	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s", cfg.Username, cfg.Password, cfg.Host)
+	clientOptions := options.Client().
+		ApplyURI(mongoURI).
+		SetConnectTimeout(time.Duration(cfg.ConnectionTimeoutInSeconds) * time.Second).
+		SetServerSelectionTimeout(time.Duration(cfg.ServerSelectionTimeoutInSeconds) * time.Second).
+		SetMaxConnIdleTime(time.Duration(cfg.MaxConnIdleTimeInSeconds) * time.Second).
+		SetMaxPoolSize(cfg.MaxPoolSize).
+		SetMinPoolSize(cfg.MinPoolSize).
+		SetRetryWrites(cfg.RetryWrites).
+		SetMonitor(otelmongo.NewMonitor(
+			otelmongo.WithCommandAttributeDisabled(true),
+		))
+
+	if cfg.ReplicaSet != "" {
+		clientOptions.SetReplicaSet(cfg.ReplicaSet)
+	}
+
+	client, err := mongo.Connect(clientOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	databaseContext, databaseCancel := context.WithTimeout(connectionContext, 5*time.Second)
-	defer databaseCancel()
-
-	if err := client.Ping(databaseContext, readpref.Primary()); err != nil {
+	pingCtx, pingCancel := context.WithTimeout(startCtx, time.Duration(cfg.PingTimeoutInSeconds)*time.Second)
+	defer pingCancel()
+	if err := client.Ping(pingCtx, readpref.Primary()); err != nil {
 		_ = client.Disconnect(context.Background())
-		return nil, fmt.Errorf("mongo ping failed for URI: %s, error: %w", uri, err)
+		return nil, fmt.Errorf("mongo ping failed for URI: %s, error: %w", mongoURI, err)
 	}
 
-	return &Db{Client: client, Database: client.Database(dbName)}, nil
+	mongoDb := &Db{Client: client, Database: client.Database(cfg.Database)}
+	slog.InfoContext(startCtx, "connected to MongoDB")
+	return mongoDb, nil
 }
 
 func (d *Db) Close(ctx context.Context) error {
@@ -45,11 +64,8 @@ func (d *Db) Collection(name string) *mongo.Collection {
 	return d.Database.Collection(name)
 }
 
-func (d *Db) Ping(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
-	return d.Client.Ping(ctx, readpref.Primary())
+func (d *Db) Ping() error {
+	return d.Client.Ping(context.Background(), readpref.Primary())
 }
 
 func (d *Db) DropAll(ctx context.Context) {
@@ -59,9 +75,9 @@ func (d *Db) DropAll(ctx context.Context) {
 	err := d.Database.Drop(ctx)
 
 	if err != nil {
-		slog.Error("failed to drop database", "error", err)
+		slog.ErrorContext(ctx, "failed to drop database", "error", err)
 		return
 	}
 
-	slog.Info("database dropped successfully")
+	slog.InfoContext(ctx, "database dropped successfully")
 }

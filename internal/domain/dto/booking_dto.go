@@ -1,13 +1,6 @@
 package dto
 
-import (
-	"time"
-
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
-	"go.mongodb.org/mongo-driver/v2/bson"
-)
-
-type RequestDto struct {
+type BookingRequestDto struct {
 	GuestId        string `json:"mainGuest"`
 	NumberOfGuests int    `json:"numberOfGuests"`
 	CheckInDate    string `json:"checkInDate"`
@@ -15,31 +8,14 @@ type RequestDto struct {
 }
 
 type ConfirmationDto struct {
-	BookingId string `json:"bookingId"`
+	Message   string              `json:"message"`
+	BookingId string              `json:"bookingId"`
+	Info      ConfirmationInfoDto `json:"info"`
 }
 
-func (bookingDto *RequestDto) ToDomain(cottageName string) (domain.Booking, error) {
-	mainGuestId, err := bson.ObjectIDFromHex(bookingDto.GuestId)
-	if err != nil {
-		return domain.Booking{}, err
-	}
-
-	checkInDate, err := time.Parse("2006-01-02", bookingDto.CheckInDate)
-	if err != nil {
-		return domain.Booking{}, err
-	}
-	checkOutDate, err := time.Parse("2006-01-02", bookingDto.CheckOutDate)
-	if err != nil {
-		return domain.Booking{}, err
-	}
-
-	return domain.Booking{
-		MainGuest:      mainGuestId,
-		NumberOfGuests: bookingDto.NumberOfGuests,
-		StayPeriod: domain.Period{
-			Start: checkInDate,
-			End:   checkOutDate,
-		},
-		CottageName: cottageName,
-	}, nil
+type ConfirmationInfoDto struct {
+	CottageName    string `json:"cottageName"`
+	NumberOfGuests int    `json:"numberOfGuests"`
+	CheckInDate    string `json:"checkInDate"`
+	CheckOutDate   string `json:"checkOutDate"`
 }

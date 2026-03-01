@@ -19,7 +19,7 @@ type InvalidPeriodError struct {
 }
 
 func (e InvalidPeriodError) Error() string {
-	return fmt.Sprintf("Invalid period: end must be after start: %v - %v", e.Period.Start, e.Period.End)
+	return fmt.Sprintf("Invalid period: check-out must be after check-in: %v - %v", e.Period.CheckIn, e.Period.CheckOut)
 }
 
 type CottageNotAvailableError struct {

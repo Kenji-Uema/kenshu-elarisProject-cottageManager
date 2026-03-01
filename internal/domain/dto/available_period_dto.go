@@ -2,18 +2,14 @@ package dto
 
 import (
 	"time"
-
-	"github.com/Kenji-Uema/cottageManager/internal/domain"
 )
 
-type AvailablePeriodDTO struct {
-	From time.Time `json:"from"`
-	To   time.Time `json:"to"`
+type PeriodDto struct {
+	CheckIn  time.Time `json:"check_in"`
+	CheckOut time.Time `json:"check_out"`
 }
 
-func FromDomain(period domain.Period) AvailablePeriodDTO {
-	return AvailablePeriodDTO{
-		From: period.Start,
-		To:   period.End,
-	}
+type AvailablePeriodDTO struct {
+	Name    string      `json:"cottage_name"`
+	Periods []PeriodDto `json:"available_periods"`
 }

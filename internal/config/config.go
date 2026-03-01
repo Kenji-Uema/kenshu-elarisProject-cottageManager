@@ -1,32 +1,48 @@
 package config
 
 import (
-	"errors"
+	"log/slog"
 
 	"github.com/caarlos0/env/v11"
 )
 
 type Configs struct {
 	AppConfig
+	ServerConfig
 	MongoConfig
 	CottageCollectionConfig
 	BookingCollectionConfig
-	LogConfig
 	TelemetryConfig
 }
 
 type AppConfig struct {
 	ServiceName string `env:"SERVICE_NAME"`
 	Version     string `env:"VERSION"`
-	Host        string `env:"SERVICE_HOST,required"`
-	Port        int    `env:"SERVICE_PORT,required"`
+}
+
+type ServerConfig struct {
+	Host                       string `env:"SERVICE_HOST,required"`
+	Port                       int    `env:"SERVICE_PORT,required"`
+	ReadHeaderTimeoutInSeconds int    `env:"READ_HEADER_TIMEOUT_IN_SECONDS,required env" envDefault:"5"`
+	ReadTimeoutInSeconds       int    `env:"READ_TIMEOUT_IN_SECONDS,required" envDefault:"10"`
+	WriteTimeoutInSeconds      int    `env:"WRITE_TIMEOUT_IN_SECONDS,required" envDefault:"15"`
+	IdleTimeoutInSeconds       int    `env:"IDLE_TIMEOUT_IN_SECONDS,required" envDefault:"60"`
 }
 
 type MongoConfig struct {
-	Username string `env:"MONGO_INITDB_ROOT_USERNAME,required"`
-	Password string `env:"MONGO_INITDB_ROOT_PASSWORD,required"`
-	Host     string `env:"MONGO_HOST,required"`
-	Database string `env:"MONGO_DATABASE,required"`
+	Username                        string `env:"MONGO_INITDB_ROOT_USERNAME,required"`
+	Password                        string `env:"MONGO_INITDB_ROOT_PASSWORD,required"`
+	Host                            string `env:"MONGO_HOST,required"`
+	Database                        string `env:"MONGO_DATABASE,required"`
+	ReplicaSet                      string `env:"MONGO_REPLICA_SET" envDefault:""`
+	ConnectionTimeoutInSeconds      int    `env:"MONGO_CONNECTION_TIMEOUT_IN_SECONDS" envDefault:"10"`
+	ServerSelectionTimeoutInSeconds int    `env:"MONGO_SERVER_SELECTION_TIMEOUT_IN_SECONDS" envDefault:"10"`
+	PingTimeoutInSeconds            int    `env:"MONGO_PING_TIMEOUT_IN_SECONDS" envDefault:"5"`
+	StartupTimeoutInSeconds         int    `env:"MONGO_STARTUP_TIMEOUT_IN_SECONDS" envDefault:"10"`
+	MaxConnIdleTimeInSeconds        int    `env:"MONGO_MAX_CONN_IDLE_TIME_IN_SECONDS" envDefault:"60"`
+	MaxPoolSize                     uint64 `env:"MONGO_MAX_POOL_SIZE" envDefault:"100"`
+	MinPoolSize                     uint64 `env:"MONGO_MIN_POOL_SIZE" envDefault:"0"`
+	RetryWrites                     bool   `env:"MONGO_RETRY_WRITES" envDefault:"true"`
 }
 
 type CottageCollectionConfig struct {
@@ -34,12 +50,7 @@ type CottageCollectionConfig struct {
 }
 
 type BookingCollectionConfig struct {
-	Name string `env:"BOOKING_COLLECTION" envDefault:"Booking"`
-}
-
-type LogConfig struct {
-	Level  string `env:"LOG_LEVEL" envDefault:"info"`
-	Format string `env:"LOG_FORMAT" envDefault:"json"`
+	Name string `env:"BOOKING_COLLECTION" envDefault:"IsValidBooking"`
 }
 
 type TelemetryConfig struct {
@@ -50,36 +61,12 @@ type TelemetryConfig struct {
 }
 
 func LoadConfigs() (Configs, error) {
-	var err error
-
-	appConfig, loadErr := loadConfig[AppConfig]()
-	err = errors.Join(err, loadErr)
-	mongoConfig, loadErr := loadConfig[MongoConfig]()
-	err = errors.Join(err, loadErr)
-	cottageCollectionConfig, loadErr := loadConfig[CottageCollectionConfig]()
-	err = errors.Join(err, loadErr)
-	bookingCollectionConfig, loadErr := loadConfig[BookingCollectionConfig]()
-	err = errors.Join(err, loadErr)
-	logCofig, loadErr := loadConfig[LogConfig]()
-	err = errors.Join(err, loadErr)
-	telemetryConfig, loadErr := loadConfig[TelemetryConfig]()
-	err = errors.Join(err, loadErr)
-
-	return Configs{
-		appConfig,
-		mongoConfig,
-		cottageCollectionConfig,
-		bookingCollectionConfig,
-		logCofig,
-		telemetryConfig,
-	}, err
-}
-
-func loadConfig[C AppConfig | MongoConfig | CottageCollectionConfig | BookingCollectionConfig | LogConfig | TelemetryConfig]() (C, error) {
-	var c C
-	if err := env.Parse(&c); err != nil {
-		return c, err
+	var cfg Configs
+	if err := env.Parse(&cfg); err != nil {
+		return cfg, err
 	}
 
-	return c, nil
+	slog.Info("config loaded", "config", cfg)
+
+	return cfg, nil
 }

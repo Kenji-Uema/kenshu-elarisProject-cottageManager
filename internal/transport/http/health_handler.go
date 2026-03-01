@@ -1,62 +1,47 @@
 package http
 
 import (
-	"context"
-	"log/slog"
 	"net/http"
-	"time"
 
+	"github.com/Kenji-Uema/cottageManager/internal/infra/db"
 	"github.com/gin-gonic/gin"
 )
 
-type readinessChecker interface {
-	Ping(ctx context.Context) error
+type ProbeHandler interface {
+	Heath(c *gin.Context)
+	Ready(c *gin.Context)
 }
 
-type Handler interface {
-	Health(c *gin.Context)
-	Liveness(c *gin.Context)
-	Readiness(c *gin.Context)
+type probeHandler struct {
+	mongoClient *db.Db
 }
 
-type handler struct {
-	readiness readinessChecker
-	timeout   time.Duration
+func NewProbeHandler(mongoClient *db.Db) ProbeHandler {
+	return &probeHandler{mongoClient: mongoClient}
 }
 
-func NewHandler(readiness readinessChecker) Handler {
-	return &handler{
-		readiness: readiness,
-		timeout:   2 * time.Second,
-	}
+// Heath godoc
+// @Summary Liveness probe
+// @Description Returns 200 when bookingService is running
+// @Tags health
+// @Success 200
+// @Router /healthz [get]
+func (p probeHandler) Heath(c *gin.Context) {
+	c.Status(http.StatusOK)
 }
 
-func (h *handler) Health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-
-func (h *handler) Liveness(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "alive"})
-}
-
-func (h *handler) Readiness(c *gin.Context) {
-	if h.readiness == nil {
-		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+// Ready godoc
+// @Summary Readiness probe
+// @Description Returns 200 when dependencies are available
+// @Tags health
+// @Success 200
+// @Failure 503
+// @Router /readyz [get]
+func (p probeHandler) Ready(c *gin.Context) {
+	if err := p.mongoClient.Ping(); err != nil {
+		c.Status(http.StatusServiceUnavailable)
 		return
 	}
 
-	ctx := c.Request.Context()
-	if h.timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, h.timeout)
-		defer cancel()
-	}
-
-	if err := h.readiness.Ping(ctx); err != nil {
-		slog.Error("readiness check failed", "error", err)
-		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "ready"})
+	c.Status(http.StatusOK)
 }
