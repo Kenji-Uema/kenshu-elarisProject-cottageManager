@@ -13,6 +13,7 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/config"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/db"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/logging"
+	"github.com/Kenji-Uema/cottageManager/internal/infra/mq"
 	"github.com/Kenji-Uema/cottageManager/internal/infra/telemetry"
 	"github.com/Kenji-Uema/cottageManager/internal/transport/http"
 )
@@ -36,13 +37,34 @@ func main() {
 	mongoDb, err := db.NewMongoDbFromConfig(ctx, configs.MongoConfig)
 	exitOnError(ctx, "failed to connect to MongoDB", err)
 
+	rabbitMqClient, err := mq.NewRabbitMqConnection(ctx, configs.RabbitMqConfig)
+	exitOnError(ctx, "failed to connect to RabbitMQ", err)
+
 	cottageRepo := db.NewCottageRepo(mongoDb.Database, configs.CottageCollectionConfig)
 	bookingRepo := db.NewBookingRepo(mongoDb.Database, configs.BookingCollectionConfig)
 	txManager := db.NewMongoTxManager(mongoDb.Client)
 
+	invoiceProducer, err := mq.NewRabbitmqProducer(rabbitMqClient, configs.CreateInvoicePublisherConfig.Publish)
+	exitOnError(ctx, "failed to create invoice producer", err)
+	err = invoiceProducer.DeclareExchange(configs.CreateInvoicePublisherConfig.Exchange)
+	exitOnError(ctx, "failed to declare invoice exchange", err)
+
+	notificationProducer, err := mq.NewRabbitmqProducer(rabbitMqClient, configs.CreateInvoicePublisherConfig.Publish)
+	exitOnError(ctx, "failed to create notification producer", err)
+	err = notificationProducer.DeclareExchange(configs.CreateInvoicePublisherConfig.Exchange)
+	exitOnError(ctx, "failed to declare notification exchange", err)
+
+	paymentConsumer, err := mq.NewRabbitmqConsumer(rabbitMqClient, configs.PaymentConfirmedConsumerConfig.Consume)
+	exitOnError(ctx, "failed to create payment consumer", err)
+	err = paymentConsumer.DeclareQueue(ctx, configs.PaymentConfirmedConsumerConfig.Queue)
+	exitOnError(ctx, "failed to declare payment queue", err)
+
 	cottageService := app.NewCottageService(cottageRepo)
-	bookingService := app.NewBookingService(cottageService, bookingRepo, txManager)
+	bookingService := app.NewBookingService(cottageService, bookingRepo, txManager, invoiceProducer)
 	availabilityService := app.NewAvailabilityService(cottageService, bookingService)
+	communicationService := app.NewCommunicationService(notificationProducer, paymentConsumer)
+
+	go communicationService.SendBookingConfirmation()
 
 	httpServer := http.NewHttpServer(configs.ServerConfig)
 	httpServer.SetupRoutes(availabilityService, bookingService, cottageService, mongoDb)
@@ -66,6 +88,22 @@ func main() {
 
 	if err := mongoDb.Close(shutdownCtx); err != nil {
 		slog.ErrorContext(shutdownCtx, "mongo shutdown failed", "err", err)
+	}
+
+	if err := rabbitMqClient.Close(); err != nil {
+		slog.ErrorContext(ctx, "close rabbitmq connection", "error", err)
+	}
+
+	if err := invoiceProducer.CloseChannel(); err != nil {
+		slog.ErrorContext(ctx, "close invoice producer", "error", err)
+	}
+
+	if err := notificationProducer.CloseChannel(); err != nil {
+		slog.ErrorContext(ctx, "close notification producer", "error", err)
+	}
+
+	if err := paymentConsumer.CloseChannel(); err != nil {
+		slog.ErrorContext(ctx, "close payment consumer", "error", err)
 	}
 }
 

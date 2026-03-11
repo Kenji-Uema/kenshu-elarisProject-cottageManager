@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package cottageManager.payment.v1;
+option go_package = "github.com/Kenji-Uema/cottageManager/internal/domain/dto;dto";
+
+import "google/protobuf/timestamp.proto";
+import "common/money.proto";
+
+message PaymentConfirmation {
+  string id = 1;
+
+  string booking_id = 2;
+  string payer_id = 3;
+
+  string invoice_number = 4;
+  string receipt_number = 5;
+
+  google.protobuf.Timestamp confirmed_at = 6;
+}

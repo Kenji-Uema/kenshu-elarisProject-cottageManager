@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package common;
+option go_package = "github.com/Kenji-Uema/cottageManager/internal/domain/dto;dto";
+
+message Money {
+  int64 amount = 1;
+  string currency = 2;
+}

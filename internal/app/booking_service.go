@@ -5,15 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/validationErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const createInvoiceRoutingKey = "booking.create-invoice"
 
 type BookingService interface {
 	GetBookings(ctx context.Context, ids []bson.ObjectID) ([]domain.Booking, error)
@@ -25,13 +30,15 @@ type bookingService struct {
 	bookingRepo    port.BookingRepo
 	txManager      port.TransactionManager
 	cottageService CottageService
+	mqProducer     port.MqProducer
 }
 
-func NewBookingService(cottageService CottageService, bookingRepo port.BookingRepo, txManager port.TransactionManager) BookingService {
+func NewBookingService(cottageService CottageService, bookingRepo port.BookingRepo, txManager port.TransactionManager, mqProducer port.MqProducer) BookingService {
 	return &bookingService{
 		cottageService: cottageService,
 		bookingRepo:    bookingRepo,
 		txManager:      txManager,
+		mqProducer:     mqProducer,
 	}
 }
 
@@ -87,6 +94,14 @@ func (s *bookingService) AddBooking(ctx context.Context, booking domain.Booking)
 		if txErr = s.cottageService.AddBooking(txCtx, cottageName, bookingId); txErr != nil {
 			slog.ErrorContext(txCtx, "failed to attach booking to cottage", "error", txErr, "cottage", cottageName, "booking_id", bookingId.Hex())
 			return nil, txErr
+		}
+
+		if s.mqProducer != nil {
+			createInvoiceReq := createInvoiceMessage(booking, bookingId, time.Now().UTC())
+			if txErr = s.mqProducer.Publish(txCtx, createInvoiceReq, createInvoiceRoutingKey); txErr != nil {
+				slog.ErrorContext(txCtx, "failed to publish create-invoice request", "error", txErr, "booking_id", bookingId.Hex())
+				return nil, txErr
+			}
 		}
 
 		return bookingId, nil
@@ -149,4 +164,24 @@ func (s *bookingService) RemoveBooking(ctx context.Context, cottageName string, 
 
 	slog.InfoContext(ctx, "booking removed", "cottage", cottageName, "booking_id", bookingId.Hex())
 	return nil
+}
+
+func createInvoiceMessage(booking domain.Booking, bookingID bson.ObjectID, issuedAt time.Time) *dto.CreateInvoicePaymentRequest {
+	nights := int32(booking.StayPeriod.CheckOut.Sub(booking.StayPeriod.CheckIn) / (24 * time.Hour))
+	if nights < 1 {
+		nights = 1
+	}
+
+	return &dto.CreateInvoicePaymentRequest{
+		IdempotencyKey: bookingID.Hex(),
+		BookingId:      bookingID.Hex(),
+		PayerId:        booking.MainGuest.Hex(),
+		IssuedAt:       timestamppb.New(issuedAt),
+		DueAt:          timestamppb.New(issuedAt.Add(48 * time.Hour)),
+		Booking: &dto.BookingSnapshot{
+			CottageName:    booking.CottageName,
+			Nights:         nights,
+			NumberOfGuests: int32(booking.NumberOfGuests),
+		},
+	}
 }

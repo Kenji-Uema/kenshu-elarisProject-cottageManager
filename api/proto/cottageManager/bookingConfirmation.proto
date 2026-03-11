@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package cottageManager.invoice;
+option go_package = "github.com/Kenji-Uema/cottageManager/internal/domain/dto;dto";
+
+import "common/money.proto";
+import "google/protobuf/timestamp.proto";
+
+message BookingConfirmedNotificationEvent {
+  string id = 1;
+  string booking_id = 2;
+
+  BookingStatus booking_status = 4;
+
+  Guest guest = 5;
+
+  BookingSummary booking = 6;
+  common.Money total_paid = 7;
+
+  google.protobuf.Timestamp confirmed_at = 8;
+}
+
+message Guest {
+  string guest_id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+}
+
+message BookingSummary {
+  string cottage_name = 1;
+  google.protobuf.Timestamp check_in = 2;
+  google.protobuf.Timestamp check_out = 3;
+  int32 nights = 4;
+  int32 number_of_guests = 5;
+}
+
+enum BookingStatus {
+  BOOKING_STATUS_UNSPECIFIED = 0;
+  BOOKING_STATUS_PENDING = 1;
+  BOOKING_STATUS_CONFIRMED = 2;
+  BOOKING_STATUS_CANCELLED = 3;
+}

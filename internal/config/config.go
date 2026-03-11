@@ -6,12 +6,22 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
+type Secret string
+
+func (s Secret) String() string {
+	return "REDACTED"
+}
+
 type Configs struct {
 	AppConfig
 	ServerConfig
 	MongoConfig
 	CottageCollectionConfig
 	BookingCollectionConfig
+	RabbitMqConfig
+	BookingConfirmationPublisherConfig
+	CreateInvoicePublisherConfig
+	PaymentConfirmedConsumerConfig
 	TelemetryConfig
 }
 
@@ -30,8 +40,8 @@ type ServerConfig struct {
 }
 
 type MongoConfig struct {
-	Username                        string `env:"MONGO_INITDB_ROOT_USERNAME,required"`
-	Password                        string `env:"MONGO_INITDB_ROOT_PASSWORD,required"`
+	Username                        Secret `env:"MONGO_INITDB_ROOT_USERNAME,required"`
+	Password                        Secret `env:"MONGO_INITDB_ROOT_PASSWORD,required"`
 	Host                            string `env:"MONGO_HOST,required"`
 	Database                        string `env:"MONGO_DATABASE,required"`
 	ReplicaSet                      string `env:"MONGO_REPLICA_SET" envDefault:""`
@@ -50,7 +60,30 @@ type CottageCollectionConfig struct {
 }
 
 type BookingCollectionConfig struct {
-	Name string `env:"BOOKING_COLLECTION" envDefault:"IsValidBooking"`
+	Name string `env:"BOOKING_COLLECTION" envDefault:"Booking"`
+}
+
+type RabbitMqConfig struct {
+	Username Secret `env:"RABBITMQ_USERNAME,required"`
+	Password Secret `env:"RABBITMQ_PASSWORD,required"`
+	Host     string `env:"RABBITMQ_HOST,required"`
+	Port     int    `env:"RABBITMQ_PORT,required"`
+}
+
+type BookingConfirmationPublisherConfig struct {
+	Exchange ExchangeConfig `envPrefix:"BOOKING_CONFIRMATION_EXCHANGE_"`
+	Publish  PublishConfig  `envPrefix:"BOOKING_CONFIRMATION_PUBLISH_"`
+}
+
+type CreateInvoicePublisherConfig struct {
+	Exchange ExchangeConfig `envPrefix:"CREATE_INVOICE_EXCHANGE_"`
+	Publish  PublishConfig  `envPrefix:"CREATE_INVOICE_PUBLISH_"`
+}
+
+type PaymentConfirmedConsumerConfig struct {
+	Queue   QueueConfig   `envPrefix:"PAYMENT_CONFIRMED_QUEUE_"`
+	Binding BindingConfig `envPrefix:"PAYMENT_CONFIRMED_BINDING_"`
+	Consume ConsumeConfig `envPrefix:"PAYMENT_CONFIRMED_CONSUME_"`
 }
 
 type TelemetryConfig struct {

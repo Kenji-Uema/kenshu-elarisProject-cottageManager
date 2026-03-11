@@ -10,10 +10,13 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/app/fakes"
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
+	mqfakes "github.com/Kenji-Uema/cottageManager/internal/infra/mq/fakes"
 	fakes2 "github.com/Kenji-Uema/cottageManager/internal/port/fakes"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"google.golang.org/protobuf/proto"
 )
 
 func validBooking(id bson.ObjectID) domain.Booking {
@@ -124,6 +127,74 @@ func Test_bookingService_AddBooking(t *testing.T) {
 		}
 
 		svc := NewBookingService(cs, repo, tx)
+		_, err := svc.AddBooking(context.Background(), booking)
+		var expectedErr *appErrors.UnexpectedError
+		if !errors.As(err, &expectedErr) {
+			t.Fatalf("expected UnexpectedError, got %v", err)
+		}
+	})
+
+	t.Run("publishes invoice request when producer is configured", func(t *testing.T) {
+		repo := fakes2.NewFakeBookingRepo()
+		tx := fakes2.NewFakeTransactionManager()
+		cs := fakes.NewFakeCottageService()
+		publisher := &mqfakes.FakeMqProducer{}
+		booking := validBooking(bson.NewObjectID())
+		id := bson.NewObjectID()
+
+		repo.AddBookingFunc = func(_ context.Context, _ document.Booking) (bson.ObjectID, error) {
+			return id, nil
+		}
+		cs.AddBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return nil
+		}
+
+		svc := NewBookingService(cs, repo, tx, publisher)
+		got, err := svc.AddBooking(context.Background(), booking)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != id {
+			t.Fatalf("expected %s, got %s", id.Hex(), got.Hex())
+		}
+		if publisher.PublishCallCount != 1 {
+			t.Fatalf("expected Publish to be called once, got %d", publisher.PublishCallCount)
+		}
+		if publisher.LastPublishedRoutingKey != createInvoiceRoutingKey {
+			t.Fatalf("expected routing key %q, got %q", createInvoiceRoutingKey, publisher.LastPublishedRoutingKey)
+		}
+
+		msg, ok := publisher.LastPublishedMessage.(*dto.CreateInvoicePaymentRequest)
+		if !ok {
+			t.Fatalf("expected CreateInvoicePaymentRequest, got %T", publisher.LastPublishedMessage)
+		}
+		if msg.BookingId != id.Hex() {
+			t.Fatalf("expected booking id %s in message, got %s", id.Hex(), msg.BookingId)
+		}
+		if msg.PayerId != booking.MainGuest.Hex() {
+			t.Fatalf("expected payer id %s, got %s", booking.MainGuest.Hex(), msg.PayerId)
+		}
+	})
+
+	t.Run("publish failure is wrapped as unexpected error", func(t *testing.T) {
+		repo := fakes2.NewFakeBookingRepo()
+		tx := fakes2.NewFakeTransactionManager()
+		cs := fakes.NewFakeCottageService()
+		publisher := &mqfakes.FakeMqProducer{}
+		booking := validBooking(bson.NewObjectID())
+		publishErr := errors.New("mq unavailable")
+
+		repo.AddBookingFunc = func(_ context.Context, _ document.Booking) (bson.ObjectID, error) {
+			return bson.NewObjectID(), nil
+		}
+		cs.AddBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
+			return nil
+		}
+		publisher.PublishFn = func(_ context.Context, _ proto.Message, _ string) error {
+			return publishErr
+		}
+
+		svc := NewBookingService(cs, repo, tx, publisher)
 		_, err := svc.AddBooking(context.Background(), booking)
 		var expectedErr *appErrors.UnexpectedError
 		if !errors.As(err, &expectedErr) {

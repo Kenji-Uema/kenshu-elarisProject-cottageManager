@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package cottageManager.invoice;
+option go_package = "github.com/Kenji-Uema/cottageManager/internal/domain/dto;dto";
+
+import "common/money.proto";
+import "google/protobuf/timestamp.proto";
+
+message CreateInvoicePaymentRequest {
+  string idempotency_key = 1;
+
+  string booking_id = 3;
+  string payer_id = 4;
+
+  google.protobuf.Timestamp issuedAt = 5;
+  google.protobuf.Timestamp dueAt = 6;
+
+  Payer payer = 7;
+  BookingSnapshot booking = 8;
+
+  // Amounts
+  common.Money total = 9;
+  common.Money tax_total = 10;
+  common.Money discount_total = 11;
+}
+
+message Payer {
+  string name = 1;
+  string email = 2;
+  string document_number = 3;
+  string billing_address = 4;
+}
+
+message BookingSnapshot {
+  string cottage_name = 1;
+  int32 nights = 2;
+  int32 number_of_guests = 3;
+  common.Money value_per_night = 4;
+}
