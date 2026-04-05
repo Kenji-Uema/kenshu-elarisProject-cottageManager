@@ -7,7 +7,12 @@ import (
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/domain"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
+
+var availabilityServiceTracer = otel.Tracer("cottage-manager.app.availability-service")
 
 type AvailabilityService interface {
 	GetAvailablePeriods(ctx context.Context, name string, period domain.Period) (domain.CottageAvailablePeriod, error)
@@ -25,10 +30,20 @@ func NewAvailabilityService(cs CottageService, bs BookingService) AvailabilitySe
 }
 
 func (s *availabilityService) GetAvailablePeriods(ctx context.Context, name string, period domain.Period) (domain.CottageAvailablePeriod, error) {
+	ctx, span := availabilityServiceTracer.Start(ctx, "AvailabilityService.GetAvailablePeriods")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("cottage.name", name),
+		attribute.String("availability.checkin_date", period.CheckIn.UTC().Format(time.RFC3339)),
+		attribute.String("availability.checkout_date", period.CheckOut.UTC().Format(time.RFC3339)),
+	)
+
 	slog.DebugContext(ctx, "calculating availability for cottage", "cottage", name, "check_in", period.CheckIn, "check_out", period.CheckOut)
 
 	cottage, err := s.cottageService.GetByName(ctx, name)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "cottage_lookup_failed")
 		slog.DebugContext(ctx, "failed to load cottage for availability", "cottage", name, "error", err)
 		return domain.CottageAvailablePeriod{}, err
 	}
@@ -36,22 +51,35 @@ func (s *availabilityService) GetAvailablePeriods(ctx context.Context, name stri
 
 	bookings, err := s.bookingService.GetBookings(ctx, cottage.Bookings)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "booking_lookup_failed")
 		slog.DebugContext(ctx, "failed to load bookings for availability", "cottage", name, "error", err)
 		return domain.CottageAvailablePeriod{}, err
 	}
 	slog.DebugContext(ctx, "loaded bookings for availability", "cottage", name, "bookings_count", len(bookings))
 
 	periods := cottageVacancies(ctx, bookings, period)
+	span.SetAttributes(attribute.Int("availability.periods.count", len(periods)))
 	slog.DebugContext(ctx, "calculated availability for cottage", "cottage", name, "available_periods_count", len(periods))
 
 	return domain.CottageAvailablePeriod{Name: cottage.Name, Periods: periods}, nil
 }
 
 func (s *availabilityService) GetAvailablePeriodsByCottageType(ctx context.Context, cottageType string, period domain.Period) ([]domain.CottageAvailablePeriod, error) {
+	ctx, span := availabilityServiceTracer.Start(ctx, "AvailabilityService.GetAvailablePeriodsByCottageType")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("cottage.type", cottageType),
+		attribute.String("availability.checkin_date", period.CheckIn.UTC().Format(time.RFC3339)),
+		attribute.String("availability.checkout_date", period.CheckOut.UTC().Format(time.RFC3339)),
+	)
+
 	slog.DebugContext(ctx, "calculating availability for cottage type", "cottage_type", cottageType, "check_in", period.CheckIn, "check_out", period.CheckOut)
 
 	cottages, err := s.cottageService.GetByView(ctx, cottageType)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "cottage_lookup_failed")
 		slog.DebugContext(ctx, "failed to load cottages by type", "cottage_type", cottageType, "error", err)
 		return nil, err
 	}
@@ -62,6 +90,8 @@ func (s *availabilityService) GetAvailablePeriodsByCottageType(ctx context.Conte
 		slog.DebugContext(ctx, "calculating availability for cottage in type query", "index", i, "cottage", cottage.Name)
 		availablePeriods, err := s.GetAvailablePeriods(ctx, cottage.Name, period)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "availability_lookup_failed")
 			slog.DebugContext(ctx, "failed to calculate availability for cottage in type query", "index", i, "cottage", cottage.Name, "error", err)
 			return nil, err
 		}
@@ -71,14 +101,25 @@ func (s *availabilityService) GetAvailablePeriodsByCottageType(ctx context.Conte
 	}
 
 	slog.DebugContext(ctx, "calculated availability for cottage type", "cottage_type", cottageType, "cottages_count", len(cottageAvailablePeriods))
+	span.SetAttributes(attribute.Int("cottage.results.count", len(cottageAvailablePeriods)))
 	return cottageAvailablePeriods, nil
 }
 
 func (s *availabilityService) IsCottageAvailable(ctx context.Context, cottageName string, period domain.Period) (bool, error) {
+	ctx, span := availabilityServiceTracer.Start(ctx, "AvailabilityService.IsCottageAvailable")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("cottage.name", cottageName),
+		attribute.String("availability.checkin_date", period.CheckIn.UTC().Format(time.RFC3339)),
+		attribute.String("availability.checkout_date", period.CheckOut.UTC().Format(time.RFC3339)),
+	)
+
 	slog.DebugContext(ctx, "checking cottage availability", "cottage", cottageName, "check_in", period.CheckIn, "check_out", period.CheckOut)
 
 	cottage, err := s.cottageService.GetByName(ctx, cottageName)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "cottage_lookup_failed")
 		slog.DebugContext(ctx, "failed to load cottage while checking availability", "cottage", cottageName, "error", err)
 		return false, err
 	}
@@ -86,6 +127,8 @@ func (s *availabilityService) IsCottageAvailable(ctx context.Context, cottageNam
 
 	bookings, err := s.bookingService.GetBookings(ctx, cottage.Bookings)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "booking_lookup_failed")
 		slog.DebugContext(ctx, "failed to load bookings while checking availability", "cottage", cottageName, "error", err)
 		return false, err
 	}
@@ -101,11 +144,13 @@ func (s *availabilityService) IsCottageAvailable(ctx context.Context, cottageNam
 			break
 		}
 		if period.CheckIn.Before(b.StayPeriod.CheckOut) && period.CheckOut.After(b.StayPeriod.CheckIn) {
+			span.SetAttributes(attribute.Bool("cottage.available", false))
 			slog.DebugContext(ctx, "cottage is not available due to overlap", "cottage", cottageName, "booking_check_in", b.StayPeriod.CheckIn, "booking_check_out", b.StayPeriod.CheckOut, "check_in", period.CheckIn, "check_out", period.CheckOut)
 			return false, nil
 		}
 	}
 
+	span.SetAttributes(attribute.Bool("cottage.available", true))
 	slog.DebugContext(ctx, "cottage is available for requested period", "cottage", cottageName, "check_in", period.CheckIn, "check_out", period.CheckOut)
 	return true, nil
 }

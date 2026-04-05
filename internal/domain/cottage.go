@@ -10,14 +10,16 @@ import (
 )
 
 type Cottage struct {
-	Id                bson.ObjectID
-	Name              string
-	View              string
-	Details           CottageDetails
-	Photos            []string
-	PricePerNight     float32
-	Bookings          []bson.ObjectID
-	CurrentlyOccupied bool
+	Id             bson.ObjectID
+	Name           string
+	View           string
+	Details        CottageDetails
+	Photos         []string
+	PricePerNight  float32
+	Bookings       []bson.ObjectID
+	CurrentGuest   bson.ObjectID
+	CleaningStatus document.CleaningStatus
+	Key            document.Key
 }
 
 type CottageDetails struct {
@@ -38,10 +40,12 @@ func NewCottageFromDoc(cottageDoc document.Cottage) (Cottage, error) {
 			BathroomDescription:  cottageDoc.Details.BathroomDescription,
 			AmenitiesDescription: cottageDoc.Details.AmenitiesDescription,
 		},
-		Photos:            cottageDoc.Photos,
-		PricePerNight:     cottageDoc.PricePerNight,
-		Bookings:          cottageDoc.Bookings,
-		CurrentlyOccupied: cottageDoc.CurrentlyOccupied,
+		Photos:         cottageDoc.Photos,
+		PricePerNight:  cottageDoc.PricePerNight,
+		Bookings:       cottageDoc.Bookings,
+		CurrentGuest:   cottageDoc.CurrentGuest,
+		CleaningStatus: cottageDoc.CleaningStatus,
+		Key:            cottageDoc.Key,
 	}
 
 	if err := validation.New().

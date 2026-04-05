@@ -14,18 +14,17 @@ func (s Secret) String() string {
 
 type Configs struct {
 	AppConfig
-	ServerConfig
 	MongoConfig
-	CottageCollectionConfig
-	BookingCollectionConfig
 	RabbitMqConfig
-	BookingConfirmationPublisherConfig
-	CreateInvoicePublisherConfig
-	PaymentConfirmedConsumerConfig
-	TelemetryConfig
 }
 
 type AppConfig struct {
+	Name      NameConfig
+	Server    ServerConfig
+	Telemetry TelemetryConfig
+}
+
+type NameConfig struct {
 	ServiceName string `env:"SERVICE_NAME"`
 	Version     string `env:"VERSION"`
 }
@@ -33,13 +32,18 @@ type AppConfig struct {
 type ServerConfig struct {
 	Host                       string `env:"SERVICE_HOST,required"`
 	Port                       int    `env:"SERVICE_PORT,required"`
-	ReadHeaderTimeoutInSeconds int    `env:"READ_HEADER_TIMEOUT_IN_SECONDS,required env" envDefault:"5"`
+	ReadHeaderTimeoutInSeconds int    `env:"READ_HEADER_TIMEOUT_IN_SECONDS,required" envDefault:"5"`
 	ReadTimeoutInSeconds       int    `env:"READ_TIMEOUT_IN_SECONDS,required" envDefault:"10"`
 	WriteTimeoutInSeconds      int    `env:"WRITE_TIMEOUT_IN_SECONDS,required" envDefault:"15"`
 	IdleTimeoutInSeconds       int    `env:"IDLE_TIMEOUT_IN_SECONDS,required" envDefault:"60"`
 }
 
 type MongoConfig struct {
+	Conn        MongoConnConfig
+	Collections MongoCollectionsConfig
+}
+
+type MongoConnConfig struct {
 	Username                        Secret `env:"MONGO_INITDB_ROOT_USERNAME,required"`
 	Password                        Secret `env:"MONGO_INITDB_ROOT_PASSWORD,required"`
 	Host                            string `env:"MONGO_HOST,required"`
@@ -55,6 +59,11 @@ type MongoConfig struct {
 	RetryWrites                     bool   `env:"MONGO_RETRY_WRITES" envDefault:"true"`
 }
 
+type MongoCollectionsConfig struct {
+	Cottage CottageCollectionConfig
+	Booking BookingCollectionConfig
+}
+
 type CottageCollectionConfig struct {
 	Name string `env:"COTTAGE_COLLECTION" envDefault:"Cottage"`
 }
@@ -64,10 +73,25 @@ type BookingCollectionConfig struct {
 }
 
 type RabbitMqConfig struct {
+	Conn       RabbitMqConnConfig
+	Publishers RabbitMqPublishersConfig
+	Consumers  RabbitMqConsumersConfig
+}
+
+type RabbitMqConnConfig struct {
 	Username Secret `env:"RABBITMQ_USERNAME,required"`
 	Password Secret `env:"RABBITMQ_PASSWORD,required"`
 	Host     string `env:"RABBITMQ_HOST,required"`
 	Port     int    `env:"RABBITMQ_PORT,required"`
+}
+
+type RabbitMqPublishersConfig struct {
+	BookingConfirmation BookingConfirmationPublisherConfig
+	CreateInvoice       CreateInvoicePublisherConfig
+}
+
+type RabbitMqConsumersConfig struct {
+	PaymentConfirmed PaymentConfirmedConsumerConfig
 }
 
 type BookingConfirmationPublisherConfig struct {

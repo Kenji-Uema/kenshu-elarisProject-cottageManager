@@ -30,6 +30,12 @@ func validBooking(id bson.ObjectID) domain.Booking {
 		},
 		CottageName: "A1",
 		Status:      "PENDING",
+		Payer: domain.BookingPayer{
+			Name:           "John Doe",
+			Email:          "john@example.com",
+			DocumentNumber: "11122233344",
+			BillingAddress: "Main St",
+		},
 	}
 }
 
@@ -42,7 +48,7 @@ func Test_bookingService_GetBookings(t *testing.T) {
 			return []document.Booking{bookingDoc}, nil
 		}
 
-		svc := NewBookingService(nil, repo, nil)
+		svc := NewBookingService(nil, repo, nil, nil)
 		got, err := svc.GetBookings(context.Background(), []bson.ObjectID{bookingId})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -60,7 +66,7 @@ func Test_bookingService_GetBookings(t *testing.T) {
 			return nil, &dbErrors.MissingBookingsErr{Missing: []bson.ObjectID{bson.NewObjectID()}}
 		}
 
-		svc := NewBookingService(nil, repo, nil)
+		svc := NewBookingService(nil, repo, nil, nil)
 		_, err := svc.GetBookings(context.Background(), []bson.ObjectID{bson.NewObjectID()})
 		var expectedErr *appErrors.CorruptedDataError
 		if !errors.As(err, &expectedErr) {
@@ -84,13 +90,46 @@ func Test_bookingService_AddBooking(t *testing.T) {
 			return nil
 		}
 
-		svc := NewBookingService(cs, repo, tx)
+		svc := NewBookingService(cs, repo, tx, nil)
 		got, err := svc.AddBooking(context.Background(), booking)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if got != id {
 			t.Fatalf("expected %s, got %s", id.Hex(), got.Hex())
+		}
+		if repo.HasOverlappingBookingCalls != 1 {
+			t.Fatalf("expected overlap check once, got %d", repo.HasOverlappingBookingCalls)
+		}
+	})
+
+	t.Run("overlapping booking returns cottage not available", func(t *testing.T) {
+		repo := fakes2.NewFakeBookingRepo()
+		tx := fakes2.NewFakeTransactionManager()
+		cs := fakes.NewFakeCottageService()
+		booking := validBooking(bson.NewObjectID())
+
+		repo.HasOverlappingBookingFunc = func(_ context.Context, cottageName string, period domain.Period) (bool, error) {
+			if cottageName != booking.CottageName {
+				t.Fatalf("unexpected cottageName %q", cottageName)
+			}
+			if period != booking.StayPeriod {
+				t.Fatalf("unexpected period %+v", period)
+			}
+			return true, nil
+		}
+
+		svc := NewBookingService(cs, repo, tx, nil)
+		_, err := svc.AddBooking(context.Background(), booking)
+		var expectedErr *appErrors.CottageNotAvailableError
+		if !errors.As(err, &expectedErr) {
+			t.Fatalf("expected CottageNotAvailableError, got %v", err)
+		}
+		if repo.AddBookingCalls != 0 {
+			t.Fatalf("expected AddBooking not to be called, got %d", repo.AddBookingCalls)
+		}
+		if cs.AddBookingCalls != 0 {
+			t.Fatalf("expected cottage AddBooking not to be called, got %d", cs.AddBookingCalls)
 		}
 	})
 
@@ -107,7 +146,7 @@ func Test_bookingService_AddBooking(t *testing.T) {
 			return &appErrors.CottageNotFound{Err: &dbErrors.CottageNotFoundErr{CottageName: "A1"}}
 		}
 
-		svc := NewBookingService(cs, repo, tx)
+		svc := NewBookingService(cs, repo, tx, nil)
 		_, err := svc.AddBooking(context.Background(), booking)
 		var expectedErr *appErrors.CottageNotFound
 		if !errors.As(err, &expectedErr) {
@@ -126,7 +165,7 @@ func Test_bookingService_AddBooking(t *testing.T) {
 			return bson.NilObjectID, repoErr
 		}
 
-		svc := NewBookingService(cs, repo, tx)
+		svc := NewBookingService(cs, repo, tx, nil)
 		_, err := svc.AddBooking(context.Background(), booking)
 		var expectedErr *appErrors.UnexpectedError
 		if !errors.As(err, &expectedErr) {
@@ -147,6 +186,22 @@ func Test_bookingService_AddBooking(t *testing.T) {
 		}
 		cs.AddBookingFunc = func(_ context.Context, _ string, _ bson.ObjectID) error {
 			return nil
+		}
+		cs.GetByNameFunc = func(_ context.Context, _ string) (domain.Cottage, error) {
+			return domain.Cottage{
+				Id:            bson.NewObjectID(),
+				Name:          booking.CottageName,
+				View:          "Sea",
+				Photos:        []string{"a.jpg"},
+				Bookings:      []bson.ObjectID{bson.NewObjectID()},
+				PricePerNight: 125.50,
+				Details: domain.CottageDetails{
+					Description:          "desc",
+					FurnitureDescription: "furniture",
+					BathroomDescription:  "bathroom",
+					AmenitiesDescription: "amenities",
+				},
+			}, nil
 		}
 
 		svc := NewBookingService(cs, repo, tx, publisher)
@@ -173,6 +228,18 @@ func Test_bookingService_AddBooking(t *testing.T) {
 		}
 		if msg.PayerId != booking.MainGuest.Hex() {
 			t.Fatalf("expected payer id %s, got %s", booking.MainGuest.Hex(), msg.PayerId)
+		}
+		if msg.GetPayer().GetEmail() != booking.Payer.Email {
+			t.Fatalf("expected payer email %q, got %q", booking.Payer.Email, msg.GetPayer().GetEmail())
+		}
+		if msg.GetBooking().GetValuePerNight().GetAmount() != 12550 {
+			t.Fatalf("expected value_per_night 12550, got %d", msg.GetBooking().GetValuePerNight().GetAmount())
+		}
+		if msg.GetTotal().GetAmount() != 50200 {
+			t.Fatalf("expected total 50200, got %d", msg.GetTotal().GetAmount())
+		}
+		if msg.GetTaxTotal().GetAmount() != 2510 {
+			t.Fatalf("expected tax total 2510, got %d", msg.GetTaxTotal().GetAmount())
 		}
 	})
 
@@ -214,7 +281,7 @@ func Test_bookingService_RemoveBooking(t *testing.T) {
 			return &dbErrors.BookingNotFoundErr{BookingId: bookingId}
 		}
 
-		svc := NewBookingService(cs, repo, tx)
+		svc := NewBookingService(cs, repo, tx, nil)
 		err := svc.RemoveBooking(context.Background(), "A1", bookingId)
 		var expectedErr *appErrors.BookingNotFound
 		if !errors.As(err, &expectedErr) {
@@ -235,7 +302,7 @@ func Test_bookingService_RemoveBooking(t *testing.T) {
 			return nil
 		}
 
-		svc := NewBookingService(cs, repo, tx)
+		svc := NewBookingService(cs, repo, tx, nil)
 		if err := svc.RemoveBooking(context.Background(), "A1", bookingId); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

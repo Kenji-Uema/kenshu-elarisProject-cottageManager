@@ -2,10 +2,10 @@
     {
         "Id": "86a7d3bb21169a393dd1db1b",
         "Name": "Rose",
-        "View": "Luxury",
+        "View": "luxury",
         "Details": {
             "Description":"Sea view",
-            "View": "Sea",
+            "View": "sea",
             "FurnitureDescription": "Modern",
             "BathroomDescription": "Marble",
             "AmenitiesDescription": "Spa, Pool"
@@ -13,32 +13,51 @@
         "Photos": ["p1.jpg", "p2.jpg"],
         "PricePerNight": 200.0,
         "Bookings": ["86a7d3bb21169a393dd1db1b", "b5fa4aefa370638801dbe2af", "40583ce2a1791c22e68e957c"],
-        "CurrentlyOccupied": false
+        "CleaningStatus": "fully_cleaned",
+        "Key": {
+            "Number": "cottage-rose-key",
+            "Holder": "cottage"
+        }
     },
     {
         "Id": "86a7d3bb21169a393dd1db1c",
         "Name": "Lily",
-        "View": "Standard",
+        "View": "standard",
         "Details": {
             "Description": "Garden view",
-            "View": "Garden"
+            "View": "garden",
+            "FurnitureDescription": "Classic",
+            "BathroomDescription": "Compact",
+            "AmenitiesDescription": "Tea station"
         },
         "Photos": ["p3.jpg"],
         "PricePerNight": 120.0,
-        "Bookings": ["c3256a49188aedb29439b86e"],
-        "CurrentlyOccupied": false
+        "Bookings": [],
+        "CleaningStatus": "daily_cleaned",
+        "Key": {
+            "Number": "cottage-lily-key",
+            "Holder": "cottage"
+        }
     },
     {
         "Id": "86a7d3bb21169a393dd1d111",
         "Name": "Daisy",
-        "View": "Luxury",
+        "View": "luxury",
         "Details": {
             "Description": "Forest edge",
-            "View": "Forest"
+            "View": "forest",
+            "FurnitureDescription": "Rustic",
+            "BathroomDescription": "Large shower",
+            "AmenitiesDescription": "Hammock and fire pit"
         },
         "Photos": ["p4.jpg"],
         "PricePerNight": 180.0,
         "Bookings": [],
-        "CurrentlyOccupied": true
+        "CurrentGuest": "507f1f77bcf86cd799439011",
+        "CleaningStatus": "prepared_for_sleep",
+        "Key": {
+            "Number": "cottage-daisy-key",
+            "Holder": "guest"
+        }
     }
 ]

@@ -73,6 +73,40 @@ func Test_bookingCrudRepo_DeleteBooking(t *testing.T) {
 	})
 }
 
+func Test_bookingRepo_UpdateStatus(t *testing.T) {
+	setupAndRun(t, func(t *testing.T, ct *mongo.Collection, br *mongo.Collection) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		r := &bookingRepo{collection: br}
+
+		t.Run("when booking exists, updates persisted status", func(t *testing.T) {
+			objectId, _ := bson.ObjectIDFromHex("86a7d3bb21169a393dd1db1b")
+
+			if err := r.UpdateStatus(ctx, objectId, "CONFIRMED"); err != nil {
+				t.Fatalf("UpdateStatus() error = %v", err)
+			}
+
+			var got document.Booking
+			if err := br.FindOne(ctx, bson.M{"_id": objectId}).Decode(&got); err != nil {
+				t.Fatalf("FindOne() error = %v", err)
+			}
+			if got.Status != "confirmed" {
+				t.Fatalf("expected persisted status confirmed, got %q", got.Status)
+			}
+		})
+
+		t.Run("when booking does not exist, returns BookingNotFoundErr", func(t *testing.T) {
+			err := r.UpdateStatus(ctx, bson.NewObjectIDFromTimestamp(time.Now()), "CONFIRMED")
+
+			var target *dbErrors.BookingNotFoundErr
+			if !errors.As(err, &target) {
+				t.Fatalf("expected BookingNotFoundErr, got %v", err)
+			}
+		})
+	})
+}
+
 func Test_bookingRepo_GetBookings(t *testing.T) {
 	setupAndRun(t, func(t *testing.T, ct *mongo.Collection, br *mongo.Collection) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

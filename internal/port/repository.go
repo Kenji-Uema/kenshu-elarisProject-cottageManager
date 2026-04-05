@@ -3,6 +3,7 @@ package port
 import (
 	"context"
 
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -14,7 +15,10 @@ type TransactionManager interface {
 
 type BookingRepo interface {
 	GetBookings(ctx context.Context, ids []bson.ObjectID) ([]document.Booking, error)
+	GetBooking(ctx context.Context, id bson.ObjectID) (document.Booking, error)
+	HasOverlappingBooking(ctx context.Context, cottageName string, period domain.Period) (bool, error)
 	AddBooking(ctx context.Context, booking document.Booking) (bson.ObjectID, error)
+	UpdateStatus(ctx context.Context, id bson.ObjectID, status string) error
 	DeleteBooking(ctx context.Context, id bson.ObjectID) error
 }
 

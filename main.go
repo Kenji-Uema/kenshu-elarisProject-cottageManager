@@ -31,42 +31,44 @@ func main() {
 	configs, err := config.LoadConfigs()
 	exitOnError(ctx, "failed to load configs", err)
 
-	shutdownTelemetry, err := telemetry.Init(ctx, configs.TelemetryConfig, configs.AppConfig)
+	shutdownTelemetry, err := telemetry.Init(ctx, configs.AppConfig.Telemetry, configs.AppConfig)
 	exitOnError(ctx, "failed to setup telemetry", err)
 
-	mongoDb, err := db.NewMongoDbFromConfig(ctx, configs.MongoConfig)
+	mongoDb, err := db.NewMongoDbFromConfig(ctx, configs.MongoConfig.Conn)
 	exitOnError(ctx, "failed to connect to MongoDB", err)
 
-	rabbitMqClient, err := mq.NewRabbitMqConnection(ctx, configs.RabbitMqConfig)
+	rabbitMqClient, err := mq.NewRabbitMqConnection(ctx, configs.RabbitMqConfig.Conn)
 	exitOnError(ctx, "failed to connect to RabbitMQ", err)
 
-	cottageRepo := db.NewCottageRepo(mongoDb.Database, configs.CottageCollectionConfig)
-	bookingRepo := db.NewBookingRepo(mongoDb.Database, configs.BookingCollectionConfig)
+	cottageRepo := db.NewCottageRepo(mongoDb.Database, configs.MongoConfig.Collections.Cottage)
+	bookingRepo := db.NewBookingRepo(mongoDb.Database, configs.MongoConfig.Collections.Booking)
 	txManager := db.NewMongoTxManager(mongoDb.Client)
 
-	invoiceProducer, err := mq.NewRabbitmqProducer(rabbitMqClient, configs.CreateInvoicePublisherConfig.Publish)
+	invoiceProducer, err := mq.NewRabbitmqProducer(rabbitMqClient, configs.RabbitMqConfig.Publishers.CreateInvoice.Publish)
 	exitOnError(ctx, "failed to create invoice producer", err)
-	err = invoiceProducer.DeclareExchange(configs.CreateInvoicePublisherConfig.Exchange)
+	err = invoiceProducer.DeclareExchange(configs.RabbitMqConfig.Publishers.CreateInvoice.Exchange)
 	exitOnError(ctx, "failed to declare invoice exchange", err)
 
-	notificationProducer, err := mq.NewRabbitmqProducer(rabbitMqClient, configs.CreateInvoicePublisherConfig.Publish)
+	notificationProducer, err := mq.NewRabbitmqProtoProducer(rabbitMqClient, configs.RabbitMqConfig.Publishers.BookingConfirmation.Publish)
 	exitOnError(ctx, "failed to create notification producer", err)
-	err = notificationProducer.DeclareExchange(configs.CreateInvoicePublisherConfig.Exchange)
+	err = notificationProducer.DeclareExchange(configs.RabbitMqConfig.Publishers.BookingConfirmation.Exchange)
 	exitOnError(ctx, "failed to declare notification exchange", err)
 
-	paymentConsumer, err := mq.NewRabbitmqConsumer(rabbitMqClient, configs.PaymentConfirmedConsumerConfig.Consume)
+	paymentConsumer, err := mq.NewRabbitmqConsumer(rabbitMqClient, configs.RabbitMqConfig.Consumers.PaymentConfirmed.Consume)
 	exitOnError(ctx, "failed to create payment consumer", err)
-	err = paymentConsumer.DeclareQueue(ctx, configs.PaymentConfirmedConsumerConfig.Queue)
+	err = paymentConsumer.DeclareQueue(ctx, configs.RabbitMqConfig.Consumers.PaymentConfirmed.Queue)
 	exitOnError(ctx, "failed to declare payment queue", err)
+	err = paymentConsumer.BindQueue(ctx, configs.RabbitMqConfig.Consumers.PaymentConfirmed.Binding)
+	exitOnError(ctx, "failed to bind payment queue", err)
 
 	cottageService := app.NewCottageService(cottageRepo)
 	bookingService := app.NewBookingService(cottageService, bookingRepo, txManager, invoiceProducer)
 	availabilityService := app.NewAvailabilityService(cottageService, bookingService)
-	communicationService := app.NewCommunicationService(notificationProducer, paymentConsumer)
+	communicationService := app.NewCommunicationService(notificationProducer, paymentConsumer, bookingRepo)
 
 	go communicationService.SendBookingConfirmation()
 
-	httpServer := http.NewHttpServer(configs.ServerConfig)
+	httpServer := http.NewHttpServer(configs.AppConfig.Server)
 	httpServer.SetupRoutes(availabilityService, bookingService, cottageService, mongoDb)
 	httpServer.SetServer()
 	go httpServer.Run(ctx)

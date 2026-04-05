@@ -76,7 +76,7 @@ var _ = BeforeSuite(func() {
 	txManager := noopTxManager{}
 
 	cottageService := app.NewCottageService(cottageRepo)
-	bookingService := app.NewBookingService(cottageService, bookingRepo, txManager)
+	bookingService := app.NewBookingService(cottageService, bookingRepo, txManager, nil)
 	availabilityService := app.NewAvailabilityService(cottageService, bookingService)
 
 	httpServer := transport.NewHttpServer(config.ServerConfig{})

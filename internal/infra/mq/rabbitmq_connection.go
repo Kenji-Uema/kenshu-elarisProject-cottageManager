@@ -20,11 +20,11 @@ const (
 type RabbitMqConnection struct {
 	mu     sync.RWMutex
 	conn   *amqp.Connection
-	cfg    config.RabbitMqConfig
+	cfg    config.RabbitMqConnConfig
 	closed bool
 }
 
-func NewRabbitMqConnection(ctx context.Context, cfg config.RabbitMqConfig) (*RabbitMqConnection, error) {
+func NewRabbitMqConnection(ctx context.Context, cfg config.RabbitMqConnConfig) (*RabbitMqConnection, error) {
 	c := &RabbitMqConnection{cfg: cfg}
 	if err := c.reconnectLocked(); err != nil {
 		return nil, err

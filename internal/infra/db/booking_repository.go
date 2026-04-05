@@ -7,6 +7,7 @@ import (
 
 	"github.com/Kenji-Uema/cottageManager/internal/app/validation"
 	"github.com/Kenji-Uema/cottageManager/internal/config"
+	"github.com/Kenji-Uema/cottageManager/internal/domain"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
@@ -68,6 +69,50 @@ func (r *bookingRepo) GetBookings(ctx context.Context, ids []bson.ObjectID) ([]d
 	return bookings, nil
 }
 
+func (r *bookingRepo) GetBooking(ctx context.Context, id bson.ObjectID) (document.Booking, error) {
+	if err := validation.New().NotNilObjectID("id", id).Validate(); err != nil {
+		return document.Booking{}, err
+	}
+
+	var booking document.Booking
+	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&booking); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return document.Booking{}, &dbErrors.BookingNotFoundErr{BookingId: id}
+		}
+
+		slog.ErrorContext(ctx, "failed to fetch booking", "error", err, "booking_id", id.Hex())
+		return document.Booking{}, &dbErrors.UnexpectedErr{Msg: "failed to fetch booking", Err: err}
+	}
+
+	return booking, nil
+}
+
+func (r *bookingRepo) HasOverlappingBooking(ctx context.Context, cottageName string, period domain.Period) (bool, error) {
+	if err := validation.New().
+		NotBlank("cottageName", cottageName).
+		ValidPeriod(period.CheckIn, period.CheckOut).Validate(); err != nil {
+		return false, err
+	}
+
+	filter := bson.M{
+		"cottage_name": cottageName,
+		"status": bson.M{"$in": []string{
+			domain.BookingStatusPending.StorageValue(),
+			domain.BookingStatusConfirmed.StorageValue(),
+		}},
+		"stay_period.check_in":  bson.M{"$lt": period.CheckOut},
+		"stay_period.check_out": bson.M{"$gt": period.CheckIn},
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to check overlapping bookings", "error", err, "cottage", cottageName, "check_in", period.CheckIn, "check_out", period.CheckOut)
+		return false, &dbErrors.UnexpectedErr{Msg: "failed to check overlapping bookings", Err: err}
+	}
+
+	return count > 0, nil
+}
+
 func (r *bookingRepo) AddBooking(ctx context.Context, booking document.Booking) (bson.ObjectID, error) {
 	if err := validation.New().NotZeroValue("booking", booking).Validate(); err != nil {
 		return bson.NilObjectID, err
@@ -89,6 +134,31 @@ func (r *bookingRepo) AddBooking(ctx context.Context, booking document.Booking) 
 	}
 
 	return bookingId, nil
+}
+
+func (r *bookingRepo) UpdateStatus(ctx context.Context, id bson.ObjectID, status string) error {
+	if err := validation.New().
+		NotNilObjectID("id", id).
+		NotBlank("status", status).Validate(); err != nil {
+		return err
+	}
+
+	normalizedStatus := domain.ParseBookingStatus(status)
+	if !normalizedStatus.IsValid() {
+		return fmt.Errorf("invalid booking status %q", status)
+	}
+
+	res, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"status": normalizedStatus.StorageValue()}})
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to update booking status", "error", err, "booking_id", id.Hex(), "status", status)
+		return &dbErrors.UnexpectedErr{Msg: "failed to update booking status", Err: err}
+	}
+
+	if res.MatchedCount == 0 {
+		return &dbErrors.BookingNotFoundErr{BookingId: id}
+	}
+
+	return nil
 }
 
 func (r *bookingRepo) DeleteBooking(ctx context.Context, id bson.ObjectID) error {

@@ -23,7 +23,7 @@ import (
 func Init(ctx context.Context, cfg config.TelemetryConfig, appCfg config.AppConfig) (func(context.Context) error, error) {
 	otelResource, err := resource.New(ctx,
 		resource.WithTelemetrySDK(),
-		resource.WithAttributes(semconv.ServiceName(fmt.Sprintf("%s:%s", appCfg.ServiceName, appCfg.Version))))
+		resource.WithAttributes(semconv.ServiceName(fmt.Sprintf("%s:%s", appCfg.Name.ServiceName, appCfg.Name.Version))))
 	if err != nil {
 		slog.ErrorContext(ctx, "create otel resource", "error", err)
 		return nil, err

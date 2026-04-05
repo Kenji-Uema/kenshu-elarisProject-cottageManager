@@ -5,19 +5,38 @@ import (
 )
 
 type Cottage struct {
-	Id                bson.ObjectID   `bson:"_id,omitempty"`
-	Name              string          `bson:"name"`
-	View              string          `bson:"view"`
-	Details           CottageDetails  `bson:"details"`
-	Photos            []string        `bson:"photos"`
-	PricePerNight     float32         `bson:"price_per_night"`
-	Bookings          []bson.ObjectID `bson:"bookings"`
-	CurrentlyOccupied bool            `bson:"currently_occupied"`
+	Id             bson.ObjectID   `bson:"_id,omitempty"`
+	Name           string          `bson:"name"`
+	View           string          `bson:"view"`
+	Details        CottageDetails  `bson:"details"`
+	Photos         []string        `bson:"photos"`
+	PricePerNight  float32         `bson:"price_per_night"`
+	Bookings       []bson.ObjectID `bson:"bookings"`
+	CurrentGuest   bson.ObjectID   `bson:"current_guest"`
+	CleaningStatus CleaningStatus  `bson:"cleaning_status"`
+	Key            Key             `bson:"key"`
 }
 
 type CottageDetails struct {
 	Description          string `bson:"description"`
+	View                 string `bson:"view"`
 	FurnitureDescription string `bson:"furniture_description"`
 	BathroomDescription  string `bson:"bathroom_description"`
 	AmenitiesDescription string `bson:"amenities_description"`
+}
+
+type CleaningStatus string
+type KeyHolder string
+
+const (
+	CleaningStatusFullyCleaned CleaningStatus = "fully_cleaned"
+)
+
+const (
+	KeyHolderCottage KeyHolder = "cottage"
+)
+
+type Key struct {
+	Number string    `bson:"number"`
+	Holder KeyHolder `bson:"holder"`
 }

@@ -1,12 +1,22 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/Kenji-Uema/cottageManager/internal/app/validation"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/document"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/dto"
+	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/validationErrors"
 	"go.mongodb.org/mongo-driver/v2/bson"
+)
+
+type BookingStatus string
+
+const (
+	BookingStatusPending   BookingStatus = "PENDING"
+	BookingStatusConfirmed BookingStatus = "CONFIRMED"
+	BookingStatusCancelled BookingStatus = "CANCELLED"
 )
 
 type Booking struct {
@@ -15,7 +25,15 @@ type Booking struct {
 	NumberOfGuests int
 	StayPeriod     Period
 	CottageName    string
-	Status         string
+	Status         BookingStatus
+	Payer          BookingPayer
+}
+
+type BookingPayer struct {
+	Name           string
+	Email          string
+	DocumentNumber string
+	BillingAddress string
 }
 
 func NewBookingFromDto(dto dto.BookingRequestDto, cottageName string) (Booking, error) {
@@ -39,7 +57,13 @@ func NewBookingFromDto(dto dto.BookingRequestDto, cottageName string) (Booking, 
 		NumberOfGuests: dto.NumberOfGuests,
 		StayPeriod:     Period{CheckIn: checkInDate, CheckOut: checkOutDate},
 		CottageName:    cottageName,
-		Status:         "PENDING",
+		Status:         BookingStatusPending,
+		Payer: BookingPayer{
+			Name:           dto.GuestName,
+			Email:          dto.GuestEmail,
+			DocumentNumber: dto.GuestDocument,
+			BillingAddress: dto.BillingAddress,
+		},
 	}
 
 	if err := validation.New().
@@ -47,15 +71,23 @@ func NewBookingFromDto(dto dto.BookingRequestDto, cottageName string) (Booking, 
 		PositiveValue("numberOfGuests", booking.NumberOfGuests).
 		ValidPeriod(booking.StayPeriod.CheckIn, booking.StayPeriod.CheckOut).
 		NotBlank("cottageName", booking.CottageName).
-		NotBlank("status", booking.Status).Validate(); err != nil {
-
+		NotBlank("status", string(booking.Status)).Validate(); err != nil {
 		return Booking{}, err
+	}
+
+	if !booking.Status.IsValid() {
+		return Booking{}, &validationErrors.ErrValidationConstrain{
+			Field:   "status",
+			Message: "must be one of PENDING, CONFIRMED, CANCELLED",
+		}
 	}
 
 	return booking, nil
 }
 
 func NewBookingFromDocument(doc document.Booking) (Booking, error) {
+	status := ParseBookingStatus(doc.Status)
+
 	booking := Booking{
 		Id:             doc.Id,
 		MainGuest:      doc.MainGuest,
@@ -65,7 +97,7 @@ func NewBookingFromDocument(doc document.Booking) (Booking, error) {
 			CheckOut: doc.StayPeriod.CheckOut,
 		},
 		CottageName: doc.CottageName,
-		Status:      doc.Status,
+		Status:      status,
 	}
 
 	if err := validation.New().
@@ -74,9 +106,16 @@ func NewBookingFromDocument(doc document.Booking) (Booking, error) {
 		PositiveValue("numberOfGuests", booking.NumberOfGuests).
 		ValidPeriod(booking.StayPeriod.CheckIn, booking.StayPeriod.CheckOut).
 		NotBlank("cottageName", booking.CottageName).
-		NotBlank("status", booking.Status).Validate(); err != nil {
+		NotBlank("status", string(booking.Status)).Validate(); err != nil {
 
 		return Booking{}, err
+	}
+
+	if !booking.Status.IsValid() {
+		return Booking{}, &validationErrors.ErrValidationConstrain{
+			Field:   "status",
+			Message: "must be one of PENDING, CONFIRMED, CANCELLED",
+		}
 	}
 
 	return booking, nil
@@ -92,6 +131,23 @@ func (b Booking) ToDocument() document.Booking {
 			CheckOut: b.StayPeriod.CheckOut,
 		},
 		CottageName: b.CottageName,
-		Status:      b.Status,
+		Status:      b.Status.StorageValue(),
 	}
+}
+
+func (s BookingStatus) IsValid() bool {
+	switch ParseBookingStatus(string(s)) {
+	case BookingStatusPending, BookingStatusConfirmed, BookingStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s BookingStatus) StorageValue() string {
+	return strings.ToLower(string(ParseBookingStatus(string(s))))
+}
+
+func ParseBookingStatus(status string) BookingStatus {
+	return BookingStatus(strings.ToUpper(status))
 }

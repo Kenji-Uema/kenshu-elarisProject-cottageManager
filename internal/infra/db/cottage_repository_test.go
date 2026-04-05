@@ -40,7 +40,7 @@ func Test_cottageRepo_GetByView(t *testing.T) {
 		r := &cottageRepo{collection: ct}
 
 		t.Run("existing view", func(t *testing.T) {
-			got, err := r.GetByView(ctx, "Luxury")
+			got, err := r.GetByView(ctx, "luxury")
 			if err != nil {
 				t.Fatalf("GetByView() unexpected error: %v", err)
 			}
@@ -48,8 +48,8 @@ func Test_cottageRepo_GetByView(t *testing.T) {
 				t.Errorf("GetByView() count = %d, want %d", len(got), 2)
 			}
 			for _, cottage := range got {
-				if cottage.View != "Luxury" {
-					t.Errorf("GetByView() returned cottage with view = %q, want %q", cottage.View, "Luxury")
+				if cottage.View != "luxury" {
+					t.Errorf("GetByView() returned cottage with view = %q, want %q", cottage.View, "luxury")
 				}
 			}
 		})
@@ -78,8 +78,14 @@ func Test_cottageRepo_GetByName(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GetByName() unexpected error: %v", err)
 			}
-			if got.Name != "Rose" || got.View != "Luxury" {
-				t.Errorf("GetByName() got = %+v, want name Rose and view Luxury", got)
+			if got.Name != "Rose" || got.View != "luxury" {
+				t.Errorf("GetByName() got = %+v, want name Rose and view luxury", got)
+			}
+			if got.CleaningStatus != document.CleaningStatusFullyCleaned {
+				t.Errorf("GetByName() cleaning status = %q, want %q", got.CleaningStatus, document.CleaningStatusFullyCleaned)
+			}
+			if got.Key.Holder != document.KeyHolderCottage {
+				t.Errorf("GetByName() key holder = %q, want %q", got.Key.Holder, document.KeyHolderCottage)
 			}
 		})
 
