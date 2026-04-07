@@ -20,6 +20,7 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 	t.Run("publishes booking confirmation from payment confirmation", func(t *testing.T) {
 		producer := &mqfakes.FakeMqProducer{}
 		consumer := &mqfakes.FakeMqConsumer{}
+		ack := &mqfakes.FakeAcknowledger{}
 		bookingRepo := repfakes.NewFakeBookingRepo()
 		bookingID := bson.NewObjectID()
 		mainGuestID := bson.NewObjectID()
@@ -52,7 +53,7 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 
 		consumer.ConsumeFn = func(_ context.Context) (<-chan amqp.Delivery, error) {
 			ch := make(chan amqp.Delivery, 1)
-			ch <- amqp.Delivery{Body: body}
+			ch <- amqp.Delivery{Body: body, Acknowledger: ack, DeliveryTag: 1}
 			close(ch)
 			return ch, nil
 		}
@@ -71,6 +72,12 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 		}
 		if producer.PublishCallCount != 1 {
 			t.Fatalf("expected publish to be called once, got %d", producer.PublishCallCount)
+		}
+		if ack.AckCalls != 1 {
+			t.Fatalf("expected ack to be called once, got %d", ack.AckCalls)
+		}
+		if ack.NackCalls != 0 {
+			t.Fatalf("expected nack to not be called, got %d", ack.NackCalls)
 		}
 		if producer.LastPublishedRoutingKey != "guest."+mainGuestID.Hex() {
 			t.Fatalf("expected routing key %q, got %q", "guest."+mainGuestID.Hex(), producer.LastPublishedRoutingKey)
@@ -103,11 +110,12 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 	t.Run("invalid message payload is skipped", func(t *testing.T) {
 		producer := &mqfakes.FakeMqProducer{}
 		consumer := &mqfakes.FakeMqConsumer{}
+		ack := &mqfakes.FakeAcknowledger{}
 		bookingRepo := repfakes.NewFakeBookingRepo()
 
 		consumer.ConsumeFn = func(_ context.Context) (<-chan amqp.Delivery, error) {
 			ch := make(chan amqp.Delivery, 1)
-			ch <- amqp.Delivery{Body: []byte(`{"invalid_json"`)}
+			ch <- amqp.Delivery{Body: []byte(`{"invalid_json"`), Acknowledger: ack, DeliveryTag: 1}
 			close(ch)
 			return ch, nil
 		}
@@ -118,6 +126,15 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 		if bookingRepo.UpdateStatusCalls != 0 {
 			t.Fatalf("expected booking status to not be updated, got %d", bookingRepo.UpdateStatusCalls)
 		}
+		if ack.AckCalls != 0 {
+			t.Fatalf("expected ack to not be called, got %d", ack.AckCalls)
+		}
+		if ack.NackCalls != 1 {
+			t.Fatalf("expected nack to be called once, got %d", ack.NackCalls)
+		}
+		if ack.LastNackRequeue {
+			t.Fatal("expected nack requeue to be false")
+		}
 		if producer.PublishCallCount != 0 {
 			t.Fatalf("expected publish to not be called, got %d", producer.PublishCallCount)
 		}
@@ -126,6 +143,7 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 	t.Run("invalid booking id is skipped", func(t *testing.T) {
 		producer := &mqfakes.FakeMqProducer{}
 		consumer := &mqfakes.FakeMqConsumer{}
+		ack := &mqfakes.FakeAcknowledger{}
 		bookingRepo := repfakes.NewFakeBookingRepo()
 
 		payment := &dto.PaymentConfirmation{
@@ -140,7 +158,7 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 
 		consumer.ConsumeFn = func(_ context.Context) (<-chan amqp.Delivery, error) {
 			ch := make(chan amqp.Delivery, 1)
-			ch <- amqp.Delivery{Body: body}
+			ch <- amqp.Delivery{Body: body, Acknowledger: ack, DeliveryTag: 1}
 			close(ch)
 			return ch, nil
 		}
@@ -150,6 +168,15 @@ func TestCommunicationService_SendBookingConfirmation(t *testing.T) {
 
 		if bookingRepo.UpdateStatusCalls != 0 {
 			t.Fatalf("expected booking status to not be updated, got %d", bookingRepo.UpdateStatusCalls)
+		}
+		if ack.AckCalls != 0 {
+			t.Fatalf("expected ack to not be called, got %d", ack.AckCalls)
+		}
+		if ack.NackCalls != 1 {
+			t.Fatalf("expected nack to be called once, got %d", ack.NackCalls)
+		}
+		if ack.LastNackRequeue {
+			t.Fatal("expected nack requeue to be false")
 		}
 		if producer.PublishCallCount != 0 {
 			t.Fatalf("expected publish to not be called, got %d", producer.PublishCallCount)

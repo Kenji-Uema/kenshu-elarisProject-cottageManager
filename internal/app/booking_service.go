@@ -13,6 +13,7 @@ import (
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/appErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/dbErrors"
 	"github.com/Kenji-Uema/cottageManager/internal/domain/errors/validationErrors"
+	"github.com/Kenji-Uema/cottageManager/internal/infra/telemetry"
 	"github.com/Kenji-Uema/cottageManager/internal/port"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -113,7 +114,12 @@ func (s *bookingService) AddBooking(ctx context.Context, booking domain.Booking)
 	slog.DebugContext(ctx, "adding booking", "cottage", cottageName, "check_in", stayPeriod.CheckIn, "check_out", stayPeriod.CheckOut)
 
 	transactionRes, err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) (any, error) {
-		hasOverlap, txErr := s.bookingRepo.HasOverlappingBooking(txCtx, cottageName, stayPeriod)
+		overlapCtx, overlapSpan := telemetry.StartAppSpan(txCtx, "BookingService.AddBooking.CheckOverlap")
+		hasOverlap, txErr := s.bookingRepo.HasOverlappingBooking(overlapCtx, cottageName, stayPeriod)
+		if txErr != nil {
+			telemetry.RecordSpanError(overlapSpan, txErr, "booking_repo.has_overlapping_booking_failed")
+		}
+		overlapSpan.End()
 		if txErr != nil {
 			slog.ErrorContext(txCtx, "failed to validate booking overlap", "error", txErr, "cottage", cottageName, "check_in", stayPeriod.CheckIn, "check_out", stayPeriod.CheckOut)
 			return nil, txErr
@@ -123,26 +129,51 @@ func (s *bookingService) AddBooking(ctx context.Context, booking domain.Booking)
 			return nil, &appErrors.CottageNotAvailableError{CottageName: cottageName, Period: stayPeriod}
 		}
 
-		bookingId, txErr := s.bookingRepo.AddBooking(txCtx, booking.ToDocument())
+		saveCtx, saveSpan := telemetry.StartAppSpan(txCtx, "BookingService.AddBooking.PersistBooking")
+		bookingId, txErr := s.bookingRepo.AddBooking(saveCtx, booking.ToDocument())
+		if txErr != nil {
+			telemetry.RecordSpanError(saveSpan, txErr, "booking_repo.add_booking_failed")
+		}
+		saveSpan.End()
 		if txErr != nil {
 			slog.ErrorContext(txCtx, "failed to persist booking", "error", txErr, "cottage", cottageName)
 			return nil, txErr
 		}
 
-		if txErr = s.cottageService.AddBooking(txCtx, cottageName, bookingId); txErr != nil {
+		attachCtx, attachSpan := telemetry.StartAppSpan(txCtx, "BookingService.AddBooking.AttachToCottage")
+		txErr = s.cottageService.AddBooking(attachCtx, cottageName, bookingId)
+		if txErr != nil {
+			telemetry.RecordSpanError(attachSpan, txErr, "cottage_service.add_booking_failed")
+		}
+		attachSpan.End()
+		if txErr != nil {
 			slog.ErrorContext(txCtx, "failed to attach booking to cottage", "error", txErr, "cottage", cottageName, "booking_id", bookingId.Hex())
 			return nil, txErr
 		}
 
 		if s.mqProducer != nil {
-			cottage, txErr := s.cottageService.GetByName(txCtx, cottageName)
+			loadCtx, loadSpan := telemetry.StartAppSpan(txCtx, "BookingService.AddBooking.LoadCottageForInvoice")
+			cottage, txErr := s.cottageService.GetByName(loadCtx, cottageName)
+			if txErr != nil {
+				telemetry.RecordSpanError(loadSpan, txErr, "cottage_service.get_by_name_failed")
+			}
+			loadSpan.End()
 			if txErr != nil {
 				slog.ErrorContext(txCtx, "failed to load cottage for invoice payload", "error", txErr, "cottage", cottageName, "booking_id", bookingId.Hex())
 				return nil, txErr
 			}
 
+			_, msgSpan := telemetry.StartAppSpan(txCtx, "BookingService.AddBooking.CreateInvoiceMessage")
 			createInvoiceReq := createInvoiceMessage(booking, cottage, bookingId, time.Now().UTC())
-			if txErr = s.mqProducer.Publish(txCtx, createInvoiceReq, createInvoiceRoutingKey); txErr != nil {
+			msgSpan.End()
+
+			publishCtx, publishSpan := telemetry.StartAppSpan(txCtx, "BookingService.AddBooking.PublishInvoiceRequest")
+			txErr = s.mqProducer.Publish(publishCtx, createInvoiceReq, createInvoiceRoutingKey)
+			if txErr != nil {
+				telemetry.RecordSpanError(publishSpan, txErr, "mq.publish_create_invoice_failed")
+			}
+			publishSpan.End()
+			if txErr != nil {
 				slog.ErrorContext(txCtx, "failed to publish create-invoice request", "error", txErr, "booking_id", bookingId.Hex())
 				return nil, txErr
 			}
@@ -200,13 +231,24 @@ func (s *bookingService) RemoveBooking(ctx context.Context, cottageName string, 
 	slog.DebugContext(ctx, "removing booking", "cottage", cottageName, "booking_id", bookingId.Hex())
 
 	_, err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) (any, error) {
-		txErr := s.bookingRepo.DeleteBooking(txCtx, bookingId)
+		deleteCtx, deleteSpan := telemetry.StartAppSpan(txCtx, "BookingService.RemoveBooking.DeleteBooking")
+		txErr := s.bookingRepo.DeleteBooking(deleteCtx, bookingId)
+		if txErr != nil {
+			telemetry.RecordSpanError(deleteSpan, txErr, "booking_repo.delete_booking_failed")
+		}
+		deleteSpan.End()
 		if txErr != nil {
 			slog.ErrorContext(txCtx, "failed to delete booking", "error", txErr, "cottage", cottageName, "booking_id", bookingId.Hex())
 			return nil, txErr
 		}
 
-		if txErr = s.cottageService.RemoveBooking(txCtx, cottageName, bookingId); txErr != nil {
+		detachCtx, detachSpan := telemetry.StartAppSpan(txCtx, "BookingService.RemoveBooking.DetachFromCottage")
+		txErr = s.cottageService.RemoveBooking(detachCtx, cottageName, bookingId)
+		if txErr != nil {
+			telemetry.RecordSpanError(detachSpan, txErr, "cottage_service.remove_booking_failed")
+		}
+		detachSpan.End()
+		if txErr != nil {
 			slog.ErrorContext(txCtx, "failed to detach booking from cottage", "error", txErr, "cottage", cottageName, "booking_id", bookingId.Hex())
 			return nil, txErr
 		}
