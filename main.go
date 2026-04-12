@@ -44,7 +44,7 @@ func main() {
 	bookingRepo := db.NewBookingRepo(mongoDb.Database, configs.MongoConfig.Collections.Booking)
 	txManager := db.NewMongoTxManager(mongoDb.Client)
 
-	invoiceProducer, err := mq.NewRabbitmqProducer(rabbitMqClient, configs.RabbitMqConfig.Publishers.CreateInvoice.Publish)
+	invoiceProducer, err := mq.NewRabbitmqProtoProducer(rabbitMqClient, configs.RabbitMqConfig.Publishers.CreateInvoice.Publish)
 	exitOnError(ctx, "failed to create invoice producer", err)
 	err = invoiceProducer.DeclareExchange(configs.RabbitMqConfig.Publishers.CreateInvoice.Exchange)
 	exitOnError(ctx, "failed to declare invoice exchange", err)

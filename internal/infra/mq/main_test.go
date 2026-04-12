@@ -116,7 +116,7 @@ func setupAndRun(testName string, t *testing.T,
 		t.Fatalf("create consumer: %v", err)
 	}
 
-	producer, err := NewRabbitmqProducer(rabbitConn, config.PublishConfig{})
+	producer, err := NewRabbitmqProtoProducer(rabbitConn, config.PublishConfig{})
 	if err != nil {
 		t.Fatalf("create producer: %v", err)
 	}
