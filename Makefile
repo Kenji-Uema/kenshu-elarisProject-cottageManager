@@ -5,4 +5,4 @@ generate:
 	npx buf generate
 
 docker-build:
-	 docker build --build-arg SERVICE_NAME=cottage-manager --build-arg VERSION=1.0.2 -t cottage-manager:1.0.2 .
+	 docker buildx build --build-arg SERVICE_NAME=cottage-manager --build-arg VERSION=1.0.2 -t cottage-manager:1.0.2 --load .
