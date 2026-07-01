@@ -49,7 +49,7 @@ func (noopTxManager) WithTransaction(ctx context.Context, callback func(ctx cont
 
 var _ = BeforeSuite(func() {
 	gin.SetMode(gin.TestMode)
-	slog.SetDefault(logging.NewLogger())
+	slog.SetDefault(logging.NewLogger(config.AppConfig{}))
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

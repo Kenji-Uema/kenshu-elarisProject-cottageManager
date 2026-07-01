@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/Kenji-Uema/cottageManager/internal/config"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -35,7 +36,7 @@ func (h *TraceHandler) WithGroup(name string) slog.Handler {
 	return &TraceHandler{base: h.base.WithGroup(name)}
 }
 
-func NewLogger() *slog.Logger {
+func NewLogger(config config.AppConfig) *slog.Logger {
 	base := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})
@@ -46,7 +47,12 @@ func NewLogger() *slog.Logger {
 	if err != nil {
 		hostname = "unknown"
 	}
+
 	return slog.New(traceHandler).With(
 		"app", hostname,
+		"service.name", config.Name.ServiceName,
+		"service.version", config.Name.Version,
+		"service.namespace", config.Name.ServiceNamespace,
+		"service.instance.id", hostname,
 	)
 }

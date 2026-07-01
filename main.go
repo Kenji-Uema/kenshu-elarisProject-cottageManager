@@ -23,13 +23,13 @@ import (
 // @description API for managing cottages, availability, and bookings.
 // @BasePath /
 func main() {
-	slog.SetDefault(logging.NewLogger())
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	configs, err := config.LoadConfigs()
 	exitOnError(ctx, "failed to load configs", err)
+
+	slog.SetDefault(logging.NewLogger(configs.AppConfig))
 
 	shutdownTelemetry, err := telemetry.Init(ctx, configs.AppConfig.Telemetry, configs.AppConfig)
 	exitOnError(ctx, "failed to setup telemetry", err)
