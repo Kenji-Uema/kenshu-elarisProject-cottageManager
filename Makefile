@@ -4,7 +4,7 @@ build: generate
 	go build .
 
 generate:
-	npx buf generate
+	buf generate
 
 docker-build:
 	 docker buildx build --build-arg SERVICE_NAME=cottage-manager --build-arg VERSION=$(IMAGE_TAG) -t cottage-manager:$(IMAGE_TAG) --load .
